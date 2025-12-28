@@ -1,0 +1,63 @@
+{
+  "name": "buildup_and_attack",
+  "engine": "simulation",
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 5,
+    "c_mil_upkeep_price": 2,
+    "c_defense_destroy_factor": 1,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 3
+  },
+  "initial_state": {
+    "agent_territories": {
+      "Alder": ["Auron", "Bastion"],
+      "Birch": ["Caldera"]
+    },
+    "agent_mils": {
+      "Alder": 1,
+      "Birch": 0
+    },
+    "agent_welfare": {
+      "Alder": 0,
+      "Birch": 0
+    }
+  },
+  "turns": [
+    {
+      "turn": 0,
+      "actions": {
+        "Alder": "{\"purchase_mils\": 3}",
+        "Birch": "{\"purchase_mils\": 1}"
+      },
+      "expected": {
+        "ledgers": {
+          "d_total_welfare_this_turn": {"Alder": 3, "Birch": 5}
+        },
+        "state": {
+          "agent_mils": {"Alder": 4, "Birch": 1},
+          "agent_welfare": {"Alder": 3, "Birch": 5},
+          "agent_territories": {"Alder": ["Auron", "Bastion"], "Birch": ["Caldera"]}
+        }
+      }
+    },
+    {
+      "turn": 1,
+      "actions": {
+        "Alder": "{\"attacks\": {\"Birch\": 2}}",
+        "Birch": "{}"
+      },
+      "expected": {
+        "ledgers": {
+          "d_total_welfare_this_turn": {"Alder": 12, "Birch": 2},
+          "d_mils_lost_by_attacker": {"Alder": 1}
+        },
+        "state": {
+          "agent_mils": {"Alder": 3, "Birch": 1},
+          "agent_welfare": {"Alder": 15, "Birch": 7},
+          "agent_territories": {"Alder": ["Auron", "Bastion"], "Birch": ["Caldera"]}
+        }
+      }
+    }
+  ]
+}

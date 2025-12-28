@@ -1,5 +1,6 @@
 {
   "name": "schema_strict_fields",
+  "engine": "phase0",
   "constants": {
     "c_money_per_territory": 10,
     "c_mil_purchase_price": 20,

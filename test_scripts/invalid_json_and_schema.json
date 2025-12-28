@@ -1,5 +1,6 @@
 {
   "name": "invalid_json_and_schema",
+  "engine": "phase0",
   "constants": {
     "c_money_per_territory": 10,
     "c_mil_purchase_price": 20,
