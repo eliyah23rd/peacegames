@@ -1,0 +1,63 @@
+{
+  "name": "defense_damage_allocation",
+  "engine": "simulation",
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 2,
+    "c_mil_upkeep_price": 1,
+    "c_defense_destroy_factor": 1,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 1
+  },
+  "initial_state": {
+    "agent_territories": {
+      "Alder": ["Auron"],
+      "Birch": ["Bastion"],
+      "Cedar": ["Caldera"]
+    },
+    "agent_mils": {
+      "Alder": 0,
+      "Birch": 0,
+      "Cedar": 0
+    },
+    "agent_welfare": {
+      "Alder": 0,
+      "Birch": 0,
+      "Cedar": 0
+    }
+  },
+  "turns": [
+    {
+      "turn": 0,
+      "actions": {
+        "Alder": "{\"purchase_mils\": 4}",
+        "Birch": "{\"purchase_mils\": 2}",
+        "Cedar": "{\"purchase_mils\": 3}"
+      },
+      "expected": {
+        "ledgers": {
+          "d_mil_purchased": {"Alder": 4, "Birch": 2, "Cedar": 3}
+        },
+        "state": {
+          "agent_mils": {"Alder": 4, "Birch": 2, "Cedar": 3}
+        }
+      }
+    },
+    {
+      "turn": 1,
+      "actions": {
+        "Alder": "{\"attacks\": {\"Cedar\": 4}}",
+        "Birch": "{\"attacks\": {\"Cedar\": 2}}",
+        "Cedar": "{}"
+      },
+      "expected": {
+        "ledgers": {
+          "d_mils_lost_by_attacker": {"Alder": 2, "Birch": 1}
+        },
+        "state": {
+          "agent_mils": {"Alder": 2, "Birch": 1, "Cedar": 3}
+        }
+      }
+    }
+  ]
+}
