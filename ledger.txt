@@ -1,0 +1,161 @@
+Per-Turn Ledger Data Structures and Computation
+
+This canvas defines the authoritative and derived per-turn ledgers used by the simulation engine.
+All ledgers are plain Python data structures (dict, dict[str, dict], etc.) and are written only by the engine, never by agents.
+
+Unless explicitly marked as derived, a ledger is authoritative for that phase.
+
+General Ledger Conventions
+
+(#1) Keys are always agent_name: str unless otherwise specified.
+(#2) All numeric values are integers unless explicitly noted.
+(#3) Ledgers are cleared at the start of each turn unless marked persistent.
+(#4) “Transpose” ledgers are derived for ease of computation and never authoritative.
+
+Persistent (Across Turns, Reset Each Round)
+Army Size
+d_num_mils: dict[str, int] = {}
+# dict[agent_name, total_mils_for_that_agent]
+
+Territory Ownership
+d_agent_territories: dict[str, set[str]] = {}
+# dict[agent_name, set_of_territory_ids]
+
+Phase 0 Output (Intentions)
+Military Purchase Intent
+d_mil_purchase_intent: dict[str, int] = {}
+# dict[agent_name, mils_requested]
+
+Declared Attacks
+d_global_attacks: dict[str, dict[str, int]] = {}
+# dict[attacking_agent, dict[target_agent, attacking_mils]]
+
+Transpose (Derived)
+d_global_attacked: dict[str, dict[str, int]] = {}
+# dict[target_agent, dict[attacker_agent, attacking_mils]]
+
+Territory Cession Intent
+d_territory_cession: dict[str, dict[str, list[str]]] = {}
+# dict[giver_agent, dict[receiver_agent, list_of_territory_ids]]
+
+Money Grant Intent
+d_money_grants: dict[str, list[tuple[str, int]]] = {}
+# dict[giver_agent, list[(receiver_agent, amount)]]
+
+Messages Sent
+d_messages_sent: dict[str, list[tuple[str, str]]] = {}
+# dict[sender_agent, list[(recipient_agent_or_all, message)]]
+
+Phase 1 – Income
+Gross Income
+d_gross_income: dict[str, int] = {}
+# dict[agent_name, income_before_any_deductions]
+
+for agent, territories in d_agent_territories.items():
+    d_gross_income[agent] = len(territories) * c_money_per_territory
+
+Phase 2 – Military Allocation
+Attacking Mils
+d_attacking_mils: dict[str, int] = {}
+# dict[agent_name, total_mils_committed_to_attack]
+
+for agent, targets in d_global_attacks.items():
+    d_attacking_mils[agent] = sum(targets.values())
+
+Defending Mils
+d_defense_mils: dict[str, int] = {}
+# dict[agent_name, mils_remaining_for_defense]
+
+for agent, total_mils in d_num_mils.items():
+    d_defense_mils[agent] = max(
+        total_mils - d_attacking_mils.get(agent, 0),
+        0
+    )
+
+Phase 3 – War Damage
+Damage Received
+d_damage_received: dict[str, dict[str, int]] = {}
+# dict[target_agent, dict[attacker_agent, damage_amount]]
+
+for target, attackers in d_global_attacked.items():
+    for attacker, mils in attackers.items():
+        d_damage_received.setdefault(target, {})[attacker] = (
+            mils * c_damage_per_attack_mil
+        )
+
+Total Damage Per Agent (Derived)
+d_total_damage_received: dict[str, int] = {}
+
+for target, dmg in d_damage_received.items():
+    d_total_damage_received[target] = sum(dmg.values())
+
+Phase 4 – Upkeep and Forced Disbanding
+Upkeep Cost
+d_upkeep_cost: dict[str, int] = {}
+# dict[agent_name, upkeep_cost]
+
+for agent, mils in d_num_mils.items():
+    d_upkeep_cost[agent] = mils * c_mil_upkeep_price
+
+Mils Disbanded Due to Upkeep
+d_mils_disbanded_upkeep: dict[str, int] = {}
+# dict[agent_name, mils_disbanded_due_to_insufficient_funds]
+
+for agent in d_num_mils:
+    if d_available_money[agent] >= d_upkeep_cost[agent]:
+        d_mils_disbanded_upkeep[agent] = 0
+    else:
+        deficit = d_upkeep_cost[agent] - d_available_money[agent]
+        disband = (deficit + c_mil_upkeep_price - 1) // c_mil_upkeep_price
+        d_mils_disbanded_upkeep[agent] = min(disband, d_num_mils[agent])
+
+Phase 5 – Military Purchases
+Purchased Mils
+d_mil_purchased: dict[str, int] = {}
+# dict[agent_name, mils_actually_purchased]
+
+for agent, requested in d_mil_purchase_intent.items():
+    affordable = d_available_money[agent] // c_mil_purchase_price
+    d_mil_purchased[agent] = min(requested, affordable)
+
+Phase 6 – Combat Losses (Proportional Allocation)
+Mils Lost by Attacker
+d_mils_lost_by_attacker: dict[str, int] = {}
+# dict[attacker_agent, mils_lost_in_combat]
+
+
+(Computed via proportional fractional allocation with remainder distribution; see Phase 6.b logic in canvas #3.)
+
+Total Mils Disbanded
+d_mils_disbanded_total: dict[str, int] = {}
+# dict[agent_name, total_mils_disbanded_this_turn]
+
+for agent in d_num_mils:
+    d_mils_disbanded_total[agent] = (
+        d_mils_disbanded_upkeep.get(agent, 0)
+        + d_mils_lost_by_attacker.get(agent, 0)
+    )
+
+Phase 7 – Transfers and Welfare
+Grants Received
+d_grants_received: dict[str, dict[str, int]] = {}
+# dict[receiver_agent, dict[giver_agent, amount]]
+
+Trade Bonus (Derived)
+d_trade_bonus: dict[str, int] = {}
+
+for agent, grants in d_grants_received.items():
+    d_trade_bonus[agent] = int(
+        sum(grants.values()) * (c_trade_factor - 1)
+    )
+
+Welfare Earned This Turn
+d_total_welfare_this_turn: dict[str, int] = {}
+# dict[agent_name, welfare_points_earned_this_turn]
+
+for agent in d_available_money:
+    d_total_welfare_this_turn[agent] = (
+        d_available_money[agent]
+        + d_trade_bonus.get(agent, 0)
+    )
+

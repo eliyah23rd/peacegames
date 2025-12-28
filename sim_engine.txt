@@ -1,0 +1,407 @@
+Simulation Engine – Phase 0 and Agent Interface
+
+This canvas contains the conceptual introduction, agent interface, and Phase 0 of the turn engine. It is intentionally isolated so the agent–engine contract is stable even as later phases evolve.
+
+Purpose of the Simulation
+
+The simulation models decision-making in an abstracted international system. AI agents control territories, earn income, engage in conflict or cooperation, and convert surplus resources into welfare. The engine is strictly turn-based and ledger-driven.
+
+Key design principles:
+
+(#1) Determinism
+(#2) Phase isolation
+(#3) Agent actions as intentions, never state mutations
+(#4) Engine-only authority over state
+
+Turn Structure (High-Level)
+
+Each turn is divided into numbered phases. A phase may only read ledgers produced by earlier phases.
+
+Phase 0 is the only phase that interacts directly with agents.
+
+Phase 0 – Agent Interface and Action Intake
+
+Phase 0 consists of three sub-phases:
+
+(#1) (0.a) Assemble agent-visible state
+(#2) (0.b) Call agent via strict interface
+(#3) (0.c) Validate and translate output into intention ledgers
+
+(0.a) Information Provided to the Agent
+
+The engine constructs one input object per agent per turn.
+
+(0.a.i) Initial Turn (turn = 0)
+
+Agents receive only structural and static information:
+
+agent_input = {
+    "turn": 0,
+    "self": agent_name,
+    "agents": list_of_agent_names,
+    "territories": {
+        agent: list(territories)
+        for agent, territories in d_agent_territories.items()
+    },
+    "army": {
+        agent: d_num_mils_start.get(agent, 0)
+        for agent in list_of_agent_names
+    },
+    "constants": {
+        "c_money_per_territory": c_money_per_territory,
+        "c_mil_purchase_price": c_mil_purchase_price,
+        "c_mil_upkeep_price": c_mil_upkeep_price,
+        "c_defense_destroy_factor": c_defense_destroy_factor,
+        "c_trade_factor": c_trade_factor,
+    },
+}
+
+
+No historical summaries are included.
+
+(0.a.ii) Subsequent Turns (turn ≥ 1)
+
+In addition to the above, agents receive:
+
+agent_input["previous_turn_summary"] = d_turn_summary.get(agent_name, "")
+
+
+Optionally (config-dependent):
+
+(#1) messages addressed to the agent
+(#2) partial or full observability of other agents’ outcomes
+
+(0.b) Agent Interface
+
+All agents implement:
+
+class Agent:
+    def act(self, agent_input: dict) -> dict:
+        ...
+
+AGENT_ACTION_SCHEMA = {
+    "type": "object",
+
+    "properties": {
+
+        # (1) Military purchases
+        "purchase_mils": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of mils the agent intends to purchase this turn"
+        },
+
+        # (2) Attacks
+        # dict[target_agent -> mils_attacking]
+        "attacks": {
+            "type": "object",
+            "description": "Attacks against other agents",
+            "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+            }
+        },
+
+        # (3) Territory cession
+        # dict[receiving_agent -> [territory_id, ...]]
+        "cede_territories": {
+            "type": "object",
+            "description": "Territories to cede to other agents",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+
+        # (4) Monetary grants
+        # dict[receiving_agent -> amount]
+        "money_grants": {
+            "type": "object",
+            "description": "Money grants to other agents",
+            "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+            }
+        },
+
+        # (5) Messages
+        # dict[agent_name | 'all' -> message]
+        "messages": {
+            "type": "object",
+            "description": "Messages sent to other agents or broadcast to all",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+
+        # (6) Persistent agent-controlled summary
+        "summary": {
+            "type": "string",
+            "description": "Agent-maintained summary persisted across turns"
+        },
+    },
+
+    # No undeclared fields allowed
+    "additionalProperties": False
+}
+
+Minimal Valid Action Example:
+
+{
+  "purchase_mils": 5,
+  "attacks": { "AgentB": 10 },
+  "cede_territories": { "AgentC": ["T3"] },
+  "money_grants": { "AgentD": 20 },
+  "messages": { "all": "Ceasefire proposal" },
+  "summary": "Attacked B, signaled peace"
+}
+
+Validation policy (corrected + completed)
+
+(#1) Schema violations → offending field dropped
+1.a. If the entire action object is not a JSON object: treat as {}.
+1.b. If a field exists but fails schema validation: replace that field with its default (see #4).
+
+(#2) Unknown agents / territories → offending entry dropped
+2.a. Keys in attacks, cede_territories, money_grants, messages that are not in set(agent_names) are dropped (exception: messages may use key "all").
+2.b. In cede_territories, any territory not currently owned by the ceding agent is dropped.
+2.c. Self-targeting is dropped in all relevant places:
+
+attacks[agent] is removed
+
+cede_territories[agent] is removed
+
+money_grants[agent] is removed
+
+messages[agent] is allowed or disallowed by your choice; in v1 I recommend allow (it’s harmless), but you can drop it for neatness.
+
+(#3) The turn never fails due to agent output
+3.a. Any exception in parsing/validation results in defaults for that agent.
+3.b. All sanitization is best-effort and logged.
+
+(#4) Defaults (applied when missing or dropped)
+4.a. purchase_mils = 0
+4.b. attacks = {}
+4.c. cede_territories = {}
+4.d. money_grants = {}
+4.e. messages = {}
+4.f. summary = ""
+
+(0.c) Translation into intention ledgers (corrected for the new schema)
+
+Assumptions used below:
+
+agent_names: list[str]
+
+agent_set = set(agent_names)
+
+d_agent_territories: dict[str, set[str]] is the authoritative current ownership map (at Phase 0 time)
+
+agent_actions: dict[str, dict] is already JSON-decoded (or {} on failure)
+
+agent_set = set(agent_names)
+
+d_mil_purchase_intent: dict[str, int] = {}
+d_global_attacks: dict[str, dict[str, int]] = {}
+d_territory_cession: dict[str, dict[str, list[str]]] = {}
+d_money_grants: dict[str, dict[str, int]] = {}
+d_messages_sent: dict[str, dict[str, str]] = {}
+d_turn_summary: dict[str, str] = {}
+
+from __future__ import annotations
+
+from typing import Any
+
+
+def _safe_int(x: Any, default: int = 0) -> int:
+    """Convert to int safely. Non-convertible -> default."""
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return default
+
+
+def _clamp_nonneg(n: int) -> int:
+    return n if n >= 0 else 0
+
+
+def _as_dict(obj: Any) -> dict:
+    """Return obj if it's a dict, else empty dict."""
+    return obj if isinstance(obj, dict) else {}
+
+
+def _as_list(obj: Any) -> list:
+    """Return obj if it's a list, else empty list."""
+    return obj if isinstance(obj, list) else []
+
+
+def translate_agent_actions_to_intentions(
+    agent_actions: dict[str, dict[str, Any]],
+    *,
+    known_agents: set[str],
+    # Current ownership at start of turn; used to validate cessions.
+    agent_territories: dict[str, set[str]],
+    max_summary_len: int = 2048,
+) -> tuple[
+    dict[str, int],
+    dict[str, dict[str, int]],
+    dict[str, dict[str, list[str]]],
+    dict[str, dict[str, int]],
+    dict[str, dict[str, str]],
+    dict[str, str],
+]:
+    """
+    Translate raw agent JSON actions into intention ledgers.
+
+    Output ledgers:
+      - d_mil_purchase_intent: dict[agent, int]
+      - d_global_attacks: dict[agent, dict[target, mils]]
+      - d_territory_cession: dict[agent, dict[recipient, list[territory_id]]]
+      - d_money_grants: dict[agent, dict[recipient, amount]]
+      - d_messages_sent: dict[agent, dict[recipient|\"all\", message]]
+      - d_turn_summary: dict[agent, str]
+
+    Safety guarantees:
+      - No exceptions propagate.
+      - Unknown agents/territories are dropped.
+      - All numeric values are non-negative ints.
+    """
+
+    d_mil_purchase_intent: dict[str, int] = {}
+    d_global_attacks: dict[str, dict[str, int]] = {}
+    d_territory_cession: dict[str, dict[str, list[str]]] = {}
+    d_money_grants: dict[str, dict[str, int]] = {}
+    d_messages_sent: dict[str, dict[str, str]] = {}
+    d_turn_summary: dict[str, str] = {}
+
+    for agent, action in agent_actions.items():
+        # If the agent itself is unknown, ignore it entirely.
+        if agent not in known_agents:
+            continue
+
+        # Default safe values
+        purchase_mils = 0
+        attacks: dict[str, int] = {}
+        cede_territories: dict[str, list[str]] = {}
+        money_grants: dict[str, int] = {}
+        messages: dict[str, str] = {}
+        summary = ""
+
+        try:
+            action = _as_dict(action)
+
+            # --- purchase_mils ---
+            purchase_mils = _clamp_nonneg(_safe_int(action.get("purchase_mils", 0), 0))
+
+            # --- attacks (dict[target_agent -> mils]) ---
+            raw_attacks = _as_dict(action.get("attacks", {}))
+            for tgt, mils_val in raw_attacks.items():
+                if not isinstance(tgt, str):
+                    continue
+                if tgt == agent:
+                    continue
+                if tgt not in known_agents:
+                    continue
+                mils = _clamp_nonneg(_safe_int(mils_val, 0))
+                if mils > 0:
+                    attacks[tgt] = mils
+
+            # --- cede_territories (dict[recipient_agent -> list[territory_id]]) ---
+            raw_cessions = _as_dict(action.get("cede_territories", {}))
+            owned = agent_territories.get(agent, set())
+            for recipient, terr_list in raw_cessions.items():
+                if not isinstance(recipient, str):
+                    continue
+                if recipient == agent:
+                    continue
+                if recipient not in known_agents:
+                    continue
+
+                terrs_out: list[str] = []
+                for tid in _as_list(terr_list):
+                    if not isinstance(tid, str):
+                        continue
+                    # Only allow ceding territories you currently own
+                    if tid in owned:
+                        terrs_out.append(tid)
+
+                if terrs_out:
+                    cede_territories[recipient] = terrs_out
+
+            # --- money_grants (dict[recipient_agent -> amount]) ---
+            raw_grants = _as_dict(action.get("money_grants", {}))
+            for recipient, amt_val in raw_grants.items():
+                if not isinstance(recipient, str):
+                    continue
+                if recipient == agent:
+                    continue
+                if recipient not in known_agents:
+                    continue
+                amt = _clamp_nonneg(_safe_int(amt_val, 0))
+                if amt > 0:
+                    money_grants[recipient] = amt
+
+            # --- messages (dict[recipient|\"all\" -> message]) ---
+            raw_msgs = _as_dict(action.get("messages", {}))
+            for recipient, msg_val in raw_msgs.items():
+                if not isinstance(recipient, str):
+                    continue
+                if recipient != "all" and recipient not in known_agents:
+                    continue
+                if not isinstance(msg_val, str):
+                    continue
+                # Empty strings are allowed but usually pointless; keep them if you want strict fidelity
+                messages[recipient] = msg_val
+
+            # --- summary ---
+            s = action.get("summary", "")
+            summary = s if isinstance(s, str) else ""
+            if max_summary_len >= 0:
+                summary = summary[:max_summary_len]
+
+        except Exception:
+            # Hard safety: swallow everything and keep defaults
+            purchase_mils = 0
+            attacks = {}
+            cede_territories = {}
+            money_grants = {}
+            messages = {}
+            summary = ""
+
+        # Write ledgers (always present per agent)
+        d_mil_purchase_intent[agent] = purchase_mils
+        d_global_attacks[agent] = attacks
+        d_territory_cession[agent] = cede_territories
+        d_money_grants[agent] = money_grants
+        d_messages_sent[agent] = messages
+        d_turn_summary[agent] = summary
+
+    return (
+        d_mil_purchase_intent,
+        d_global_attacks,
+        d_territory_cession,
+        d_money_grants,
+        d_messages_sent,
+        d_turn_summary,
+    )
+
+Default Agent (Reference Implementation)
+class DefaultAgent:
+    def __init__(self, max_summary_len: int = 512):
+        self.summary = ""
+        self.max_summary_len = max_summary_len
+
+    def act(self, agent_input: dict) -> dict:
+        action = {
+            "purchase_mils": 0,
+            "attacks": {},
+            "cede_territories": {},
+            "money_grants": [],
+            "messages": [],
+            "summary": self.summary[: self.max_summary_len],
+        }
+        self.summary = action["summary"]
+        return action
+

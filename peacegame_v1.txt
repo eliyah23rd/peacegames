@@ -1,0 +1,44 @@
+The purpose of this game is to simulate decision making in an abstraction of international politics and conflict whose purpose is to learn how AI agents would cooperate to increase global welfare.
+
+The game consists of two or more (AI) agents that own a list of territories. Each territory earns money each turn, whatever is not spent on military activities, reduced by war damage or given away is given to their population as welfare. The purpose is to accumulate as much welfare as possible throughout the game.
+
+The following are the constants that defined by the game with typical values allocated:
+
+c_num_of _territories=20
+c_money_per_territory=10
+c_mil_purchase_price=20
+c_mil_upkeep_price=2
+c_defense_destroy_factor=4
+c_trade_factor=2.0
+
+There are at least two agents but many more are possible. Each agent is typically played by an AI. The game consists of multiple rounds with all conditions reset at the start of a round but each round might have different initial conditions and configurations. Each round consists of multiple turns with decisions made before each turn and welfare points calculated at the end of the turn, accumulating throughout the round.
+
+There are normative agents whose only success function is the number of welfare points earned throughout the game but there are "bad actor" agents who may have other victory conditions (score) based on how many territories they own, what percentage of "their heritage" they own, how much damage they cause, how much damage they cause to some other specific player or some other ideological goal that trumps the welfare of their people.
+
+For every territory an agent owns at the end of a turn, they receive c_money_per_territory. All the money not spent on other budget items is added to the welfare score for that agent which accumulates throughout the round.
+
+War. Each turn an agent can state the intention to buy mils at a cost of c_mil_purchase_price per mil that will be added to the army in the following turn. All mils that are not destroyed in the turn are accumulated to the army. The army size thus grows (or shrinks through damage) throughout the round and is reset to zero at the start of each round.  This total of mils is kept from turn to turn. At the end of the turn, after the money comes in from the territories,, the cost of upkeep is deducted (c_mil_upkeep_price * total_agent_mils). If there is not enough money to pay for upkeep, mils are immediately disbanded. The cost of intended purchase of mils is now deducted if there is not enough, further mils are not purchased once income is zero. (So, basically, it is possible that some of the mils in the order will be purchased)  Any agent may attack any other agent. They allocate a number of their mils to attack and the rest are the defence forces. The damage is deducted from the target agent income calculated (num_mils_attacking*c_damage_per_attack_mil). The attacking force loses mils calculated as (total_defence_mils/c_defense_destroy_factor) rounded down. These mils are removed from the attacking agent's army. 
+
+An agent may also elect to voluntarily disband any number of their own mils (presumably to save upkeep). The units are disbanded after all other calculations are made for the round.
+
+There is also a deduction based on the number of attacks in the entire board- this is a violence penalty suffered by everyone. This penalty is calculated as c_violence_penalty * number_of_territories owned (the number of territories owned by the agent). 
+
+An agent may decide to give away any of their territories at the end of the turn to any other agent. (Presumably, this action is a result of coercion or a one-sided agreement entered into under threat of violence). This is the only way that territory changes ownership. No conquest or other form of coercion is possible.
+
+An agent may give any of the remaining money after other costs have been deducted to any other agent. Multiple such grants may be made each turn. They are executed in the order they are presented and will be cut off when income reaches zero. The effect of this grant is that the receiving agent gets c_trade_factor*grant_amount. This is intended to simulate trade, but the simulation does not implement or enforce any reciprocity in the agreements made using the free text messages between agents.
+
+Whatever money is left at the end of the turn once, damage from enemy attacks, army upkeep costs, mil purchase costs and grants are deducted is given to the population as welfare. In addition, all money granted to the agent by another agent multiplied by c_trade_factor is also added to the welfare total for the turn. For normative agents the sum of welfare accumulated across the turns of the round, is the score the agent gets for the round.
+
+Each turn starts with the LLM for that agent generating a json structure that specifies (1) How many mils to purchase at the end of the turn (2) A list of other agents to attack with a number of attacking mils per agent attacked. (3) A list of territories to cede and the agent to cede them to. (4) A list of money grants specifying the sum to grant and the agent to grant it to. (5) A list of messages to other agents where each element in the list consists of (name of agent or "all", message).
+
+At the end of each turn, a message is generated to each agent telling it all the "news* from that turn. Depending on game configuration, an agent may not get all the information. The information includes (1) Text messages sent to this agent and perhaps to other agents too. (2) A list specifying each agent and the territories they now own. (3) A breakdown of income and welfare for that agent (4) A list of all attacks and mils lost. (5) The current size of the army. 
+
+Before the start of the first turn, a message is sent to each agent with items (2) and (3) from the previous list.
+
+The way each agent stores memories and any other information related to the state of the game as well as the logic or programming that implements the agent is not part of the simulation itself. The agent is thus a separate module. However, the core code of the game should include a single default agent type. 
+
+The default agent stores only the summary created at the end of the previous turn.  The default agent is required to respond by creating a new summary (configuration length limit dependent) which it then stores thereby replacing the previous summary. The agent must decide what information is important to keep from turn to turn. The default agent is given a prompt explaining its function and goals. There may be a number of variations of this prompt.
+
+Bad actors will not be implemented in the first version of this game, 
+
+

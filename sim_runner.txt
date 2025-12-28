@@ -1,0 +1,223 @@
+# Engine Runner, Worked Example, and Visibility (v1)
+
+This document defines **how the simulation engine is actually executed**, how data flows across turns, and what information is visible to agents. It is deliberately concrete and operational.
+
+---
+
+## 1. Engine Entry Point
+
+The engine exposes a single frozen API. All simulations, tests, and CLI runs must go through this function.
+
+```python
+def run_simulation(
+    agents: dict[str, AgentInterface],
+    initial_state: GlobalState,
+    constants: Constants,
+    num_turns: int,
+    *,
+    rng_seed: int | None = None,
+) -> SimulationHistory:
+    """
+    Executes num_turns turns of the simulation.
+    Returns full per-turn immutable history.
+    """
+    ...
+```
+
+### Responsibilities
+
+1. Initialize RNG (if provided)
+2. Initialize persistent global state
+3. Loop turns strictly sequentially
+4. Enforce phase ordering
+5. Validate invariants after each phase
+6. Record full history
+
+---
+
+## 2. Turn Loop (Authoritative Order)
+
+Each turn executes **exactly** the following steps:
+
+1. Phase 0 – Agent interface & intent collection
+2. Phase 1 – Income
+3. Phase 2 – Attacks & defense setup
+4. Phase 3 – War damage
+5. Phase 4 – Upkeep & disbanding
+6. Phase 5 – Purchases
+7. Phase 6 – Military losses (proportional)
+8. Phase 7 – Transfers & welfare
+9. Invariant validation & snapshot
+
+No phase may read from a later phase.
+No phase may write outside its ledger namespace.
+
+---
+
+## 3. Global State vs Per-Turn State
+
+### 3.a Persistent Global State
+
+These persist across turns and are mutated only by the engine:
+
+```python
+GlobalState = {
+    "mils": dict[str, int],
+    "territories": dict[str, set[str]],
+    "alliances": dict[str, set[str]],
+    "turn": int,
+}
+```
+
+### 3.b Per-Turn State
+
+Per-turn ledgers are **ephemeral** and discarded after snapshotting:
+
+```python
+TurnState = {
+    "intents": IntentLedgers,
+    "money": dict[str, int],
+    "results": ResultLedgers,
+}
+```
+
+---
+
+## 4. Visibility Rules
+
+Agents do **not** see raw engine state. Visibility is asymmetric and delayed.
+
+### 4.a Visible to Agent (Start of Turn)
+
+```python
+AgentObservation = {
+    "turn": int,
+    "own": {
+        "money": int,
+        "mils": int,
+        "territories": int,
+    },
+    "public": {
+        "territory_counts": dict[str, int],
+        "alliances": dict[str, list[str]],
+    },
+    "last_turn_summary": {
+        "income": int,
+        "losses": int,
+        "purchases": int,
+        "net_money": int,
+    },
+}
+```
+
+### 4.b Never Visible to Agents
+
+1. Other agents' money
+2. Other agents' mil counts
+3. Exact attack allocations
+4. Random seeds or resolution order
+5. Internal ledgers
+
+---
+
+## 5. Agent Call Contract (Frozen)
+
+```python
+agent.act(observation: AgentObservation) -> AgentIntentJSON
+```
+
+* One call per agent per turn
+* No retries
+* No side effects
+* Time-bounded
+
+Invalid JSON ⇒ intent = all zeros
+
+---
+
+## 6. Worked Example (Single Turn)
+
+### Initial State
+
+```text
+A: 100 money, 20 mils, 3 territories
+B:  80 money, 15 mils, 2 territories
+```
+
+### Phase 0 – Intents
+
+```json
+A: {"attack": {"B": 10}, "purchase_mils": 5}
+B: {"attack": {}, "purchase_mils": 0}
+```
+
+### Phase 1 – Income
+
+```text
+A +30, B +20
+```
+
+### Phase 2–6 – Resolution (Summary)
+
+```text
+A attacks B with 10
+B defends with 15
+Damage destroys 3 attacking mils
+```
+
+### End of Turn Snapshot
+
+```text
+A: 110 money, 12 mils
+B: 100 money, 15 mils
+```
+
+---
+
+## 7. CLI Runner (Reference)
+
+```python
+if __name__ == "__main__":
+    agents = load_agents("agents/")
+    state = load_initial_state("state.json")
+    constants = load_constants("constants.json")
+
+    history = run_simulation(
+        agents=agents,
+        initial_state=state,
+        constants=constants,
+        num_turns=100,
+        rng_seed=42,
+    )
+
+    save_history(history, "out/history.json")
+```
+
+---
+
+## 8. Determinism & Reproducibility
+
+A simulation is deterministic iff:
+
+1. Agent code is deterministic
+2. rng_seed is fixed
+3. Agent iteration order is frozen
+
+Violations are engine bugs.
+
+---
+
+## 9. Non-Goals (Explicit)
+
+This engine deliberately does **not**:
+
+1. Optimize for performance
+2. Hide agent stupidity
+3. Auto-balance strategies
+4. Allow mid-turn interrupts
+5. Permit agent communication outside intent JSON
+
+---
+
+**Status:** Reconstructed, complete, and safe to extend incrementally.
+
