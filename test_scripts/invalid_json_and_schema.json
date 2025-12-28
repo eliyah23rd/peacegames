@@ -9,28 +9,28 @@
   },
   "initial_state": {
     "agent_territories": {
-      "A": ["T1"],
-      "B": ["T2"]
+      "Cedar": ["Driftwood"],
+      "Dune": ["Everspring"]
     },
     "agent_mils": {
-      "A": 1,
-      "B": 1
+      "Cedar": 1,
+      "Dune": 1
     }
   },
   "turns": [
     {
       "turn": 0,
       "actions": {
-        "A": "{not json}",
-        "B": "{\"purchase_mils\": -5, \"attacks\": \"bad\", \"cede_territories\": {\"B\": [\"T9\"], \"A\": [\"T1\"]}, \"money_grants\": \"bad\", \"messages\": {\"C\": \"nope\", \"all\": 5}, \"summary\": 123}"
+        "Cedar": "{not json}",
+        "Dune": "{\"purchase_mils\": -5, \"attacks\": \"bad\", \"cede_territories\": {\"Dune\": [\"Frostvale\"], \"Cedar\": [\"Driftwood\"]}, \"money_grants\": \"bad\", \"messages\": {\"Ember\": \"nope\", \"all\": 5}, \"summary\": 123}"
       },
       "expected": {
-        "d_mil_purchase_intent": {"A": 0, "B": 0},
-        "d_global_attacks": {"A": {}, "B": {}},
-        "d_territory_cession": {"A": {}, "B": {}},
-        "d_money_grants": {"A": {}, "B": {}},
-        "d_messages_sent": {"A": {}, "B": {}},
-        "d_turn_summary": {"A": "", "B": ""}
+        "d_mil_purchase_intent": {"Cedar": 0, "Dune": 0},
+        "d_global_attacks": {"Cedar": {}, "Dune": {}},
+        "d_territory_cession": {"Cedar": {}, "Dune": {}},
+        "d_money_grants": {"Cedar": {}, "Dune": {}},
+        "d_messages_sent": {"Cedar": {}, "Dune": {}},
+        "d_turn_summary": {"Cedar": "", "Dune": ""}
       }
     }
   ]

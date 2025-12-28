@@ -9,28 +9,28 @@
   },
   "initial_state": {
     "agent_territories": {
-      "A": ["T1"],
-      "B": ["T2"]
+      "Galen": ["Ironridge"],
+      "Harbor": ["Jasperin"]
     },
     "agent_mils": {
-      "A": 2,
-      "B": 2
+      "Galen": 2,
+      "Harbor": 2
     }
   },
   "turns": [
     {
       "turn": 0,
       "actions": {
-        "A": "{\"purchase_mils\": 3, \"attacks\": {\"B\": 2, \"A\": 1, \"C\": 1}, \"cede_territories\": {\"B\": [\"T1\", \"T9\", 2]}, \"money_grants\": {\"B\": 0, \"A\": 2, \"B2\": 3}, \"messages\": {\"all\": \"hi\", \"B\": 5}, \"summary\": \"ok\"}",
-        "B": "{}"
+        "Galen": "{\"purchase_mils\": 3, \"attacks\": {\"Harbor\": 2, \"Galen\": 1, \"Ivory\": 1}, \"cede_territories\": {\"Harbor\": [\"Ironridge\", \"KestrelBay\", 2]}, \"money_grants\": {\"Harbor\": 0, \"Galen\": 2, \"Ivory\": 3}, \"messages\": {\"all\": \"hi\", \"Harbor\": 5}, \"summary\": \"ok\"}",
+        "Harbor": "{}"
       },
       "expected": {
-        "d_mil_purchase_intent": {"A": 3, "B": 0},
-        "d_global_attacks": {"A": {"B": 2}, "B": {}},
-        "d_territory_cession": {"A": {"B": ["T1"]}, "B": {}},
-        "d_money_grants": {"A": {}, "B": {}},
-        "d_messages_sent": {"A": {"all": "hi"}, "B": {}},
-        "d_turn_summary": {"A": "ok", "B": ""}
+        "d_mil_purchase_intent": {"Galen": 3, "Harbor": 0},
+        "d_global_attacks": {"Galen": {"Harbor": 2}, "Harbor": {}},
+        "d_territory_cession": {"Galen": {"Harbor": ["Ironridge"]}, "Harbor": {}},
+        "d_money_grants": {"Galen": {}, "Harbor": {}},
+        "d_messages_sent": {"Galen": {"all": "hi"}, "Harbor": {}},
+        "d_turn_summary": {"Galen": "ok", "Harbor": ""}
       }
     }
   ]
