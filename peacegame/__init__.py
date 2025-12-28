@@ -1,6 +1,7 @@
 """Peacegame simulation package (phase 0 + test utilities)."""
 
 from .agents import DefaultAgent, ScriptedAgent
+from .engine import Phase0Engine
 from .phase0 import (
     assemble_agent_inputs,
     call_agents_collect_actions,
@@ -10,6 +11,7 @@ from .phase0 import (
 
 __all__ = [
     "DefaultAgent",
+    "Phase0Engine",
     "ScriptedAgent",
     "assemble_agent_inputs",
     "call_agents_collect_actions",
