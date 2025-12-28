@@ -31,6 +31,69 @@ def _log(log_fn, msg: str) -> None:
         log_fn(msg)
 
 
+def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
+    allowed = {
+        "purchase_mils",
+        "attacks",
+        "cede_territories",
+        "money_grants",
+        "messages",
+        "summary",
+    }
+    validated: Dict[str, Any] = {}
+
+    for key in list(action.keys()):
+        if key not in allowed:
+            _log(log_fn, f"Agent action field {key} ignored (not in schema)")
+
+    purchase_mils = action.get("purchase_mils")
+    if isinstance(purchase_mils, int) and purchase_mils >= 0:
+        validated["purchase_mils"] = purchase_mils
+    elif purchase_mils is not None:
+        _log(log_fn, "Agent purchase_mils rejected due to schema")
+
+    attacks = action.get("attacks")
+    if isinstance(attacks, dict) and all(
+        isinstance(v, int) and v >= 0 for v in attacks.values()
+    ):
+        validated["attacks"] = attacks
+    elif attacks is not None:
+        _log(log_fn, "Agent attacks rejected due to schema")
+
+    cede_territories = action.get("cede_territories")
+    if isinstance(cede_territories, dict) and all(
+        isinstance(v, list) and all(isinstance(t, str) for t in v)
+        for v in cede_territories.values()
+    ):
+        validated["cede_territories"] = cede_territories
+    elif cede_territories is not None:
+        _log(log_fn, "Agent cede_territories rejected due to schema")
+
+    money_grants = action.get("money_grants")
+    if isinstance(money_grants, dict) and all(
+        isinstance(v, int) and v >= 0 for v in money_grants.values()
+    ):
+        validated["money_grants"] = money_grants
+    elif money_grants is not None:
+        _log(log_fn, "Agent money_grants rejected due to schema")
+
+    messages = action.get("messages")
+    if isinstance(messages, dict) and all(
+        isinstance(v, str) for v in messages.values()
+    ):
+        validated["messages"] = messages
+    elif messages is not None:
+        _log(log_fn, "Agent messages rejected due to schema")
+
+    summary = action.get("summary")
+    if isinstance(summary, str):
+        validated["summary"] = summary
+    elif summary is not None:
+        _log(log_fn, "Agent summary rejected due to schema")
+
+    return validated
+
+
 def _parse_action(raw: Any, *, log_fn=None) -> dict:
     if isinstance(raw, str):
         try:
@@ -41,9 +104,9 @@ def _parse_action(raw: Any, *, log_fn=None) -> dict:
         if not isinstance(parsed, dict):
             _log(log_fn, "Agent action JSON is not an object; using defaults")
             return {}
-        return parsed
+        return _validate_action_schema(parsed, log_fn=log_fn)
     if isinstance(raw, dict):
-        return raw
+        return _validate_action_schema(raw, log_fn=log_fn)
     _log(log_fn, "Agent action is not a JSON string or object; using defaults")
     return {}
 

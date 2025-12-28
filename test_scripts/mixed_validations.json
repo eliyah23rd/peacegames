@@ -27,9 +27,9 @@
       "expected": {
         "d_mil_purchase_intent": {"Galen": 3, "Harbor": 0},
         "d_global_attacks": {"Galen": {"Harbor": 2}, "Harbor": {}},
-        "d_territory_cession": {"Galen": {"Harbor": ["Ironridge"]}, "Harbor": {}},
+        "d_territory_cession": {"Galen": {}, "Harbor": {}},
         "d_money_grants": {"Galen": {}, "Harbor": {}},
-        "d_messages_sent": {"Galen": {"all": "hi"}, "Harbor": {}},
+        "d_messages_sent": {"Galen": {}, "Harbor": {}},
         "d_turn_summary": {"Galen": "ok", "Harbor": ""}
       }
     }
