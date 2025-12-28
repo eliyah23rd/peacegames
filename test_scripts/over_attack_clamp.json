@@ -1,0 +1,46 @@
+{
+  "name": "over_attack_clamp",
+  "engine": "simulation",
+  "constants": {
+    "c_money_per_territory": 5,
+    "c_mil_purchase_price": 10,
+    "c_mil_upkeep_price": 1,
+    "c_defense_destroy_factor": 1,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 1
+  },
+  "initial_state": {
+    "agent_territories": {
+      "Harbor": ["Jasperin"],
+      "Ivory": ["Larkspur"]
+    },
+    "agent_mils": {
+      "Harbor": 2,
+      "Ivory": 1
+    },
+    "agent_welfare": {
+      "Harbor": 0,
+      "Ivory": 0
+    }
+  },
+  "turns": [
+    {
+      "turn": 0,
+      "actions": {
+        "Harbor": "{\"attacks\": {\"Ivory\": 5}}",
+        "Ivory": "{}"
+      },
+      "expected": {
+        "ledgers": {
+          "d_global_attacks": {"Harbor": {"Ivory": 2}, "Ivory": {}},
+          "d_total_welfare_this_turn": {"Harbor": 3, "Ivory": 2}
+        },
+        "state": {
+          "agent_mils": {"Harbor": 1, "Ivory": 1},
+          "agent_welfare": {"Harbor": 3, "Ivory": 2},
+          "agent_territories": {"Harbor": ["Jasperin"], "Ivory": ["Larkspur"]}
+        }
+      }
+    }
+  ]
+}

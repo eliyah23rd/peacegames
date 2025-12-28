@@ -33,11 +33,11 @@
       "expected": {
         "ledgers": {
           "d_mils_disbanded_upkeep": {"Cedar": 4, "Dune": 0},
-          "d_total_welfare_this_turn": {"Cedar": 0, "Dune": 5}
+          "d_total_welfare_this_turn": {"Cedar": 1, "Dune": 5}
         },
         "state": {
           "agent_mils": {"Cedar": 2, "Dune": 0},
-          "agent_welfare": {"Cedar": 0, "Dune": 5},
+          "agent_welfare": {"Cedar": 1, "Dune": 5},
           "agent_territories": {"Cedar": ["Driftwood"], "Dune": ["Everspring"]}
         }
       }
@@ -54,7 +54,7 @@
         },
         "state": {
           "agent_mils": {"Cedar": 2, "Dune": 0},
-          "agent_welfare": {"Cedar": 1, "Dune": 10},
+          "agent_welfare": {"Cedar": 2, "Dune": 10},
           "agent_territories": {"Cedar": ["Driftwood"], "Dune": ["Everspring"]}
         }
       }

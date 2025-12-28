@@ -161,6 +161,11 @@ class Phase0ScriptTests(unittest.TestCase):
             agent_welfare=agent_welfare,
             constants=constants,
         )
+        self.sim_engine.setup_state(
+            agent_territories=agent_territories,
+            agent_mils=agent_mils,
+            agent_welfare=agent_welfare,
+        )
 
         turn_summaries: dict[str, str] = {a: "" for a in agent_names}
 
@@ -171,9 +176,6 @@ class Phase0ScriptTests(unittest.TestCase):
                 script_name=name,
                 turn=turn_num,
                 agents=agents,
-                agent_territories=agent_territories,
-                agent_mils=agent_mils,
-                agent_welfare=agent_welfare,
                 constants=constants,
                 turn_summaries=turn_summaries,
                 max_summary_len=64,

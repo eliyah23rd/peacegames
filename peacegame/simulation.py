@@ -50,6 +50,33 @@ def _allocate_losses_proportional(
     return losses
 
 
+def _clamp_attacks_to_mils(
+    d_global_attacks: Dict[str, Dict[str, int]],
+    agent_mils: Dict[str, int],
+    *,
+    log_fn=None,
+) -> Dict[str, Dict[str, int]]:
+    clamped: Dict[str, Dict[str, int]] = {}
+    for attacker, targets in d_global_attacks.items():
+        total_attack = sum(targets.values())
+        available = agent_mils.get(attacker, 0)
+        if total_attack <= available:
+            clamped[attacker] = dict(targets)
+            continue
+        if available <= 0 or total_attack <= 0:
+            clamped[attacker] = {}
+            if log_fn is not None:
+                log_fn(f"Agent {attacker} attack mils clamped to 0 (no available mils)")
+            continue
+        scaled = _allocate_losses_proportional(targets, available)
+        clamped[attacker] = scaled
+        if log_fn is not None:
+            log_fn(
+                f"Agent {attacker} attack mils clamped from {total_attack} to {available}"
+            )
+    return clamped
+
+
 class SimulationEngine:
     """Full turn engine with logging and datasheets."""
 
@@ -61,6 +88,10 @@ class SimulationEngine:
         self.sheet_path = os.path.join("datasheets", f"{run_label}_{run_id}.xls")
         self._log_fp = open(self.log_path, "w", encoding="utf-8")
         self._rows: List[List[str]] = []
+        self.agent_territories: Dict[str, Set[str]] = {}
+        self.agent_mils: Dict[str, int] = {}
+        self.agent_welfare: Dict[str, int] = {}
+        self.agent_names: List[str] = []
 
     def close(self) -> None:
         headers = ["script", "turn", "agent", "phase", "ledger", "value"]
@@ -92,20 +123,40 @@ class SimulationEngine:
     def log_script_end(self, *, script_name: str) -> None:
         self.log(f"Script {script_name} end")
 
+    def setup_state(
+        self,
+        *,
+        agent_territories: Mapping[str, Set[str]],
+        agent_mils: Mapping[str, int],
+        agent_welfare: Mapping[str, int],
+    ) -> None:
+        self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
+        self.agent_mils = {k: int(v) for k, v in agent_mils.items()}
+        self.agent_welfare = {k: int(v) for k, v in agent_welfare.items()}
+        agent_names = set(self.agent_territories.keys()) | set(self.agent_mils.keys()) | set(
+            self.agent_welfare.keys()
+        )
+        self.agent_names = sorted(agent_names)
+        for agent in self.agent_names:
+            self.agent_territories.setdefault(agent, set())
+            self.agent_mils.setdefault(agent, 0)
+            self.agent_welfare.setdefault(agent, 0)
+
     def run_turn(
         self,
         *,
         script_name: str,
         turn: int,
         agents: Mapping[str, Any],
-        agent_territories: Dict[str, Set[str]],
-        agent_mils: Dict[str, int],
-        agent_welfare: Dict[str, int],
         constants: Mapping[str, Any],
         turn_summaries: Dict[str, str],
         max_summary_len: int = 2048,
     ) -> Dict[str, Any]:
         self.log(f"Turn {turn} start for {script_name}")
+
+        agent_territories = self.agent_territories
+        agent_mils = self.agent_mils
+        agent_welfare = self.agent_welfare
 
         inputs = assemble_agent_inputs(
             turn=turn,
@@ -131,6 +182,10 @@ class SimulationEngine:
             agent_territories=agent_territories,
             max_summary_len=max_summary_len,
             log_fn=self.log,
+        )
+
+        d_global_attacks = _clamp_attacks_to_mils(
+            d_global_attacks, agent_mils, log_fn=self.log
         )
 
         d_gross_income: Dict[str, int] = {}
@@ -167,17 +222,17 @@ class SimulationEngine:
         d_upkeep_cost: Dict[str, int] = {}
         d_mils_disbanded_upkeep: Dict[str, int] = {}
         for agent, mils in agent_mils.items():
-            d_upkeep_cost[agent] = mils * int(constants["c_mil_upkeep_price"])
+            upkeep_price = int(constants["c_mil_upkeep_price"])
+            d_upkeep_cost[agent] = mils * upkeep_price
             if d_available_money[agent] >= d_upkeep_cost[agent]:
                 d_mils_disbanded_upkeep[agent] = 0
                 d_available_money[agent] -= d_upkeep_cost[agent]
             else:
                 deficit = d_upkeep_cost[agent] - d_available_money[agent]
-                disband = (deficit + int(constants["c_mil_upkeep_price"]) - 1) // int(
-                    constants["c_mil_upkeep_price"]
-                )
+                disband = (deficit + upkeep_price - 1) // upkeep_price
                 d_mils_disbanded_upkeep[agent] = min(disband, agent_mils[agent])
-                d_available_money[agent] = 0
+                reduced_cost = d_upkeep_cost[agent] - d_mils_disbanded_upkeep[agent] * upkeep_price
+                d_available_money[agent] = max(d_available_money[agent] - reduced_cost, 0)
 
         d_mil_purchased: Dict[str, int] = {}
         for agent, requested in d_mil_purchase_intent.items():
