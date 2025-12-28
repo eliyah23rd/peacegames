@@ -1,0 +1,27 @@
+{
+  "name": "simple_two_agent",
+  "model": "gpt-5-nano",
+  "num_turns": 5,
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 5,
+    "c_mil_upkeep_price": 2,
+    "c_defense_destroy_factor": 2,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 2
+  },
+  "initial_state": {
+    "agent_territories": {
+      "Alder": ["Auron", "Bastion", "Caldera", "Driftwood", "Everspring", "Frostvale"],
+      "Birch": ["Gildhaven", "Highmoor", "Ironridge", "Jasperin", "KestrelBay", "Larkspur"]
+    },
+    "agent_mils": {
+      "Alder": 0,
+      "Birch": 0
+    },
+    "agent_welfare": {
+      "Alder": 0,
+      "Birch": 0
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 from .agents import DefaultAgent, ScriptedAgent
 from .engine import Phase0Engine
+from .llm_agent import DEFAULT_AGENT_PROMPT, DummyLLMProvider, LLMDefaultAgent, OpenAIProvider
 from .simulation import SimulationEngine
 from .phase0 import (
     assemble_agent_inputs,
@@ -12,6 +13,10 @@ from .phase0 import (
 
 __all__ = [
     "DefaultAgent",
+    "DEFAULT_AGENT_PROMPT",
+    "DummyLLMProvider",
+    "LLMDefaultAgent",
+    "OpenAIProvider",
     "Phase0Engine",
     "SimulationEngine",
     "ScriptedAgent",
