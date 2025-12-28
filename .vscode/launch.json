@@ -8,6 +8,18 @@
       "module": "tests.run_phase0_tests",
       "cwd": "${workspaceFolder}",
       "justMyCode": true
+    },
+    {
+      "name": "Debug LLM Simulation (Dummy)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_llm_simulation.py",
+      "args": ["initial_setup/simple_two_agent.json"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PEACEGAME_LLM_DUMMY": "1"
+      },
+      "justMyCode": true
     }
   ]
 }
