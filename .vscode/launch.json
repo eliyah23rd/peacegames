@@ -20,6 +20,15 @@
         "PEACEGAME_LLM_DUMMY": "1"
       },
       "justMyCode": true
+    },
+    {
+      "name": "Debug LLM Simulation (Real)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_llm_simulation.py",
+      "args": ["initial_setup/simple_two_agent.json"],
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
     }
   ]
 }

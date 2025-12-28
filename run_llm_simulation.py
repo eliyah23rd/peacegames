@@ -5,7 +5,12 @@ import os
 import sys
 from typing import Any, Dict
 
-from peacegame.llm_agent import DummyLLMProvider, LLMDefaultAgent, OpenAIProvider
+from peacegame.llm_agent import (
+    DummyLLMProvider,
+    LLMDefaultAgent,
+    OpenAIProvider,
+    build_system_prompt,
+)
 from peacegame.simulation import SimulationEngine
 
 
@@ -16,7 +21,9 @@ def _load_setup(path: str) -> Dict[str, Any]:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("Usage: python run_llm_simulation.py initial_setup/<file>.json")
+        print(
+            "Usage: python run_llm_simulation.py initial_setup/<file>.json [modifier1 modifier2 ...]"
+        )
         return 2
 
     setup_path = sys.argv[1]
@@ -46,7 +53,16 @@ def main() -> int:
     }
 
     agent_names = sorted(set(agent_territories) | set(agent_mils) | set(agent_welfare))
-    agents = {name: LLMDefaultAgent(name, provider=provider) for name in agent_names}
+    modifiers = []
+    for raw in sys.argv[2:]:
+        modifiers.extend([m for m in raw.split(",") if m])
+    agents = {}
+    for idx, agent_name in enumerate(agent_names):
+        mod = modifiers[idx] if idx < len(modifiers) else ""
+        system_prompt = build_system_prompt([mod]) if mod else build_system_prompt([])
+        agents[agent_name] = LLMDefaultAgent(
+            agent_name, provider=provider, system_prompt=system_prompt
+        )
 
     engine = SimulationEngine(run_label=name)
     engine.log_initial_state(

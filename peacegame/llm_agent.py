@@ -34,6 +34,29 @@ Schema details:
 Only refer to known agents and territories from the input. If unsure, do nothing for that field.
 """
 
+PROMPT_MODIFIERS = {
+    "trade": "Actively explore trade: send messages proposing grants or trade swaps when feasible.",
+    "defense": "Avoid being defenseless: consider purchasing mils to deter attacks.",
+    "pressure": "Build mils and demand territory cessions in messages to improve your position.",
+    "diplomacy": "Prioritize peaceful cooperation: propose non-aggression or mutual grants.",
+    "opportunist": "Look for weak targets and consider limited attacks if it improves welfare.",
+    "austerity": "Prefer saving money for welfare unless a clear threat exists.",
+    "expansion": "Focus on expanding territory via negotiated cessions.",
+    "deterrence": "Maintain a credible army size relative to others.",
+    "signals": "Use messages to clearly state your intentions and requests.",
+}
+
+
+def build_system_prompt(modifiers: list[str]) -> str:
+    extra_lines = []
+    for name in modifiers:
+        line = PROMPT_MODIFIERS.get(name)
+        if line is not None:
+            extra_lines.append(f"- {name}: {line}")
+    if not extra_lines:
+        return DEFAULT_AGENT_PROMPT
+    return DEFAULT_AGENT_PROMPT + "\\n\\nPrompt modifiers:\\n" + "\\n".join(extra_lines) + "\\n"
+
 
 class OpenAIProvider:
     def __init__(self, *, model: str = "gpt-5-nano") -> None:
@@ -46,7 +69,7 @@ class OpenAIProvider:
         response = self._client.chat.completions.create(
             model=self._model,
             messages=messages,
-            max_completion_tokens=1000,
+            max_completion_tokens=100000,
         )
         return response.choices[0].message.content
 
