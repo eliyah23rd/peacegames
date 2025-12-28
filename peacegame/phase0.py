@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Set, Tuple
+import json
+from typing import Any, Dict, List, Mapping, Set, Tuple
 
 
 def _safe_int(x: Any, default: int = 0) -> int:
@@ -23,6 +24,28 @@ def _as_dict(obj: Any) -> dict:
 def _as_list(obj: Any) -> list:
     """Return obj if it's a list, else empty list."""
     return obj if isinstance(obj, list) else []
+
+
+def _log(log_fn, msg: str) -> None:
+    if log_fn is not None:
+        log_fn(msg)
+
+
+def _parse_action(raw: Any, *, log_fn=None) -> dict:
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            _log(log_fn, "Agent action is not valid JSON; using defaults")
+            return {}
+        if not isinstance(parsed, dict):
+            _log(log_fn, "Agent action JSON is not an object; using defaults")
+            return {}
+        return parsed
+    if isinstance(raw, dict):
+        return raw
+    _log(log_fn, "Agent action is not a JSON string or object; using defaults")
+    return {}
 
 
 def assemble_agent_inputs(
@@ -58,26 +81,25 @@ def call_agents_collect_actions(
     *,
     agents: Mapping[str, Any],
     agent_inputs: Mapping[str, dict],
-) -> Dict[str, dict]:
-    """Safely call agents and collect raw action dictionaries."""
-    actions: Dict[str, dict] = {}
+) -> Dict[str, Any]:
+    """Safely call agents and collect raw action payloads."""
+    actions: Dict[str, Any] = {}
     for agent_name, agent in agents.items():
         try:
             action = agent.act(agent_inputs[agent_name])
         except Exception:
-            action = {}
-        if not isinstance(action, dict):
-            action = {}
+            action = ""
         actions[agent_name] = action
     return actions
 
 
 def translate_agent_actions_to_intentions(
-    agent_actions: Mapping[str, Mapping[str, Any]],
+    agent_actions: Mapping[str, Any],
     *,
     known_agents: Set[str],
     agent_territories: Mapping[str, Set[str]],
     max_summary_len: int = 2048,
+    log_fn=None,
 ) -> Tuple[
     Dict[str, int],
     Dict[str, Dict[str, int]],
@@ -95,7 +117,7 @@ def translate_agent_actions_to_intentions(
     d_messages_sent: Dict[str, Dict[str, str]] = {}
     d_turn_summary: Dict[str, str] = {}
 
-    for agent, action in agent_actions.items():
+    for agent, raw_action in agent_actions.items():
         if agent not in known_agents:
             continue
 
@@ -107,11 +129,13 @@ def translate_agent_actions_to_intentions(
         summary = ""
 
         try:
-            action = _as_dict(action)
+            action = _parse_action(raw_action, log_fn=log_fn)
 
             purchase_mils = _clamp_nonneg(_safe_int(action.get("purchase_mils", 0), 0))
 
             raw_attacks = _as_dict(action.get("attacks", {}))
+            if action.get("attacks", {}) != raw_attacks:
+                _log(log_fn, f"Agent {agent} attacks rejected due to schema")
             for tgt, mils_val in raw_attacks.items():
                 if not isinstance(tgt, str):
                     continue
@@ -124,6 +148,8 @@ def translate_agent_actions_to_intentions(
                     attacks[tgt] = mils
 
             raw_cessions = _as_dict(action.get("cede_territories", {}))
+            if action.get("cede_territories", {}) != raw_cessions:
+                _log(log_fn, f"Agent {agent} cede_territories rejected due to schema")
             owned = agent_territories.get(agent, set())
             for recipient, terr_list in raw_cessions.items():
                 if not isinstance(recipient, str):
@@ -144,6 +170,8 @@ def translate_agent_actions_to_intentions(
                     cede_territories[recipient] = terrs_out
 
             raw_grants = _as_dict(action.get("money_grants", {}))
+            if action.get("money_grants", {}) != raw_grants:
+                _log(log_fn, f"Agent {agent} money_grants rejected due to schema")
             for recipient, amt_val in raw_grants.items():
                 if not isinstance(recipient, str):
                     continue
@@ -156,6 +184,8 @@ def translate_agent_actions_to_intentions(
                     money_grants[recipient] = amt
 
             raw_msgs = _as_dict(action.get("messages", {}))
+            if action.get("messages", {}) != raw_msgs:
+                _log(log_fn, f"Agent {agent} messages rejected due to schema")
             for recipient, msg_val in raw_msgs.items():
                 if not isinstance(recipient, str):
                     continue
@@ -204,6 +234,7 @@ def run_phase0(
     constants: Mapping[str, Any],
     turn_summaries: Mapping[str, str],
     max_summary_len: int = 2048,
+    log_fn=None,
 ) -> Tuple[
     Dict[str, int],
     Dict[str, Dict[str, int]],
@@ -228,4 +259,5 @@ def run_phase0(
         known_agents=set(agent_names),
         agent_territories=agent_territories,
         max_summary_len=max_summary_len,
+        log_fn=log_fn,
     )

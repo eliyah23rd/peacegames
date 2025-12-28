@@ -1,141 +1,167 @@
+import datetime as dt
+import html
+import json
+import os
 import unittest
 
 from peacegame.agents import ScriptedAgent
-from peacegame.phase0 import assemble_agent_inputs, run_phase0
+from peacegame.phase0 import run_phase0
 
 
-class Phase0Tests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.constants = {
-            "c_money_per_territory": 10,
-            "c_mil_purchase_price": 20,
-            "c_mil_upkeep_price": 2,
-            "c_defense_destroy_factor": 4,
-            "c_trade_factor": 2.0,
-        }
-        self.agent_territories = {
-            "A": {"T1", "T2"},
-            "B": {"T3"},
-        }
-        self.agent_mils = {"A": 5, "B": 3}
+TEST_SCRIPTS_DIR = "test_scripts"
+LOG_DIR = "logs"
+DATASHEET_DIR = "datasheets"
 
-    def test_assemble_inputs_turn0_no_summary(self) -> None:
-        inputs = assemble_agent_inputs(
-            turn=0,
-            agent_names=["A", "B"],
-            agent_territories=self.agent_territories,
-            agent_mils=self.agent_mils,
-            constants=self.constants,
-            turn_summaries={},
+
+def _load_scripts() -> list[dict]:
+    scripts = []
+    for fname in sorted(os.listdir(TEST_SCRIPTS_DIR)):
+        if not fname.endswith(".json"):
+            continue
+        path = os.path.join(TEST_SCRIPTS_DIR, fname)
+        with open(path, "r", encoding="utf-8") as f:
+            scripts.append(json.load(f))
+    return scripts
+
+
+def _ensure_dirs() -> None:
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(DATASHEET_DIR, exist_ok=True)
+
+
+def _write_xls(path: str, headers: list[str], rows: list[list[str]]) -> None:
+    lines = [
+        "<html><head><meta charset=\"utf-8\"></head><body>",
+        "<table border=\"1\">",
+        "<tr>" + "".join(f"<th>{html.escape(h)}</th>" for h in headers) + "</tr>",
+    ]
+    for row in rows:
+        lines.append(
+            "<tr>" + "".join(f"<td>{html.escape(str(cell))}</td>" for cell in row) + "</tr>"
         )
-        self.assertNotIn("previous_turn_summary", inputs["A"])
-        self.assertEqual(inputs["A"]["turn"], 0)
-        self.assertEqual(inputs["A"]["self"], "A")
+    lines.append("</table></body></html>")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
 
-    def test_phase0_happy_path(self) -> None:
-        agents = {
-            "A": ScriptedAgent(
-                actions=[
-                    {
-                        "purchase_mils": 2,
-                        "attacks": {"B": 1},
-                        "cede_territories": {"B": ["T1"]},
-                        "money_grants": {"B": 5},
-                        "messages": {"all": "hello"},
-                        "summary": "turn0",
-                    }
-                ]
-            ),
-            "B": ScriptedAgent(actions=[{"summary": "ok"}]),
+
+class Phase0ScriptTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        _ensure_dirs()
+        run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
+        cls.log_path = os.path.join(LOG_DIR, f"run_{run_id}.log")
+        cls.sheet_path = os.path.join(DATASHEET_DIR, f"run_{run_id}.xls")
+        cls._log_fp = open(cls.log_path, "w", encoding="utf-8")
+        cls._rows: list[list[str]] = []
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        headers = ["script", "turn", "agent", "phase", "ledger", "value"]
+        _write_xls(cls.sheet_path, headers, cls._rows)
+        cls._log_fp.close()
+
+    def _log(self, msg: str) -> None:
+        self._log_fp.write(msg + "\n")
+        self._log_fp.flush()
+
+    def test_run_all_scripts(self) -> None:
+        scripts = _load_scripts()
+        self.assertGreater(len(scripts), 0, "No test scripts found")
+
+        for script in scripts:
+            with self.subTest(script=script.get("name", "(unnamed)")):
+                self._run_script(script)
+
+    def _run_script(self, script: dict) -> None:
+        name = script.get("name", "(unnamed)")
+        constants = script.get("constants", {})
+        initial_state = script.get("initial_state", {})
+        turns = script.get("turns", [])
+
+        agent_territories = {
+            agent: set(territories)
+            for agent, territories in initial_state.get("agent_territories", {}).items()
+        }
+        agent_mils = {
+            agent: int(mils) for agent, mils in initial_state.get("agent_mils", {}).items()
         }
 
-        (
-            d_mil_purchase_intent,
-            d_global_attacks,
-            d_territory_cession,
-            d_money_grants,
-            d_messages_sent,
-            d_turn_summary,
-        ) = run_phase0(
-            turn=0,
-            agents=agents,
-            agent_territories=self.agent_territories,
-            agent_mils=self.agent_mils,
-            constants=self.constants,
-            turn_summaries={},
-            max_summary_len=64,
-        )
+        agent_names = set(agent_territories.keys()) | set(agent_mils.keys())
+        for turn in turns:
+            agent_names |= set(turn.get("actions", {}).keys())
+        agent_names = sorted(agent_names)
 
-        self.assertEqual(d_mil_purchase_intent["A"], 2)
-        self.assertEqual(d_global_attacks["A"], {"B": 1})
-        self.assertEqual(d_territory_cession["A"], {"B": ["T1"]})
-        self.assertEqual(d_money_grants["A"], {"B": 5})
-        self.assertEqual(d_messages_sent["A"], {"all": "hello"})
-        self.assertEqual(d_turn_summary["A"], "turn0")
-        self.assertEqual(d_turn_summary["B"], "ok")
+        actions_by_agent: dict[str, list[str]] = {a: [] for a in agent_names}
+        for turn in turns:
+            actions = turn.get("actions", {})
+            for agent in agent_names:
+                action = actions.get(agent, "{}")
+                self.assertIsInstance(
+                    action, str, f"Script {name} action for {agent} must be JSON string"
+                )
+                actions_by_agent[agent].append(action)
 
-    def test_phase0_validation_drops_invalid(self) -> None:
-        agents = {
-            "A": ScriptedAgent(
-                actions=[
-                    {
-                        "purchase_mils": -5,
-                        "attacks": {"A": 2, "C": 3, "B": "x"},
-                        "cede_territories": {"B": ["T9"], "A": ["T1"]},
-                        "money_grants": {"B": -1, "A": 2},
-                        "messages": {"C": "nope", "all": 5},
-                        "summary": 123,
-                    }
-                ]
-            ),
-            "B": ScriptedAgent(actions=[{}]),
-        }
+        agents = {agent: ScriptedAgent(actions=actions_by_agent[agent]) for agent in agent_names}
 
-        (
-            d_mil_purchase_intent,
-            d_global_attacks,
-            d_territory_cession,
-            d_money_grants,
-            d_messages_sent,
-            d_turn_summary,
-        ) = run_phase0(
-            turn=1,
-            agents=agents,
-            agent_territories=self.agent_territories,
-            agent_mils=self.agent_mils,
-            constants=self.constants,
-            turn_summaries={"A": "prev"},
-            max_summary_len=64,
-        )
+        self._log(f"Script {name} start")
+        self._log(f"Initial territories: {sorted((a, sorted(list(t))) for a, t in agent_territories.items())}")
+        self._log(f"Initial mils: {sorted(agent_mils.items())}")
+        self._log(f"Constants: {constants}")
 
-        self.assertEqual(d_mil_purchase_intent["A"], 0)
-        self.assertEqual(d_global_attacks["A"], {})
-        self.assertEqual(d_territory_cession["A"], {})
-        self.assertEqual(d_money_grants["A"], {})
-        self.assertEqual(d_messages_sent["A"], {})
-        self.assertEqual(d_turn_summary["A"], "")
+        turn_summaries: dict[str, str] = {a: "" for a in agent_names}
 
-    def test_phase0_truncates_summary(self) -> None:
-        agents = {
-            "A": ScriptedAgent(actions=[{"summary": "abc" * 10}]),
-        }
-        (
-            _,
-            _,
-            _,
-            _,
-            _,
-            d_turn_summary,
-        ) = run_phase0(
-            turn=1,
-            agents=agents,
-            agent_territories={"A": {"T1"}},
-            agent_mils={"A": 0},
-            constants=self.constants,
-            turn_summaries={"A": "prev"},
-            max_summary_len=5,
-        )
-        self.assertEqual(d_turn_summary["A"], "abcab")
+        for idx, turn in enumerate(turns):
+            turn_num = int(turn.get("turn", idx))
+            self._log(f"Turn {turn_num} start")
+            self._log(f"Raw actions: {turn.get('actions', {})}")
+
+            (
+                d_mil_purchase_intent,
+                d_global_attacks,
+                d_territory_cession,
+                d_money_grants,
+                d_messages_sent,
+                d_turn_summary,
+            ) = run_phase0(
+                turn=turn_num,
+                agents=agents,
+                agent_territories=agent_territories,
+                agent_mils=agent_mils,
+                constants=constants,
+                turn_summaries=turn_summaries,
+                max_summary_len=64,
+                log_fn=self._log,
+            )
+
+            expected = turn.get("expected", {})
+            for ledger_name, ledger_val in expected.items():
+                actual = locals()[ledger_name]
+                self.assertEqual(actual, ledger_val, f"Mismatch for {ledger_name} in {name}")
+
+            for agent in agent_names:
+                self._rows.append(
+                    [name, str(turn_num), agent, "phase0", "d_mil_purchase_intent", json.dumps(d_mil_purchase_intent.get(agent, 0), sort_keys=True)]
+                )
+                self._rows.append(
+                    [name, str(turn_num), agent, "phase0", "d_global_attacks", json.dumps(d_global_attacks.get(agent, {}), sort_keys=True)]
+                )
+                self._rows.append(
+                    [name, str(turn_num), agent, "phase0", "d_territory_cession", json.dumps(d_territory_cession.get(agent, {}), sort_keys=True)]
+                )
+                self._rows.append(
+                    [name, str(turn_num), agent, "phase0", "d_money_grants", json.dumps(d_money_grants.get(agent, {}), sort_keys=True)]
+                )
+                self._rows.append(
+                    [name, str(turn_num), agent, "phase0", "d_messages_sent", json.dumps(d_messages_sent.get(agent, {}), sort_keys=True)]
+                )
+                self._rows.append(
+                    [name, str(turn_num), agent, "phase0", "d_turn_summary", d_turn_summary.get(agent, "")]
+                )
+
+            turn_summaries = d_turn_summary
+            self._log(f"Turn {turn_num} outputs: {d_turn_summary}")
+
+        self._log(f"Script {name} end")
 
 
 if __name__ == "__main__":

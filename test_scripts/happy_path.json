@@ -1,0 +1,49 @@
+{
+  "name": "happy_path",
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 20,
+    "c_mil_upkeep_price": 2,
+    "c_defense_destroy_factor": 4,
+    "c_trade_factor": 2.0
+  },
+  "initial_state": {
+    "agent_territories": {
+      "A": ["T1", "T2"],
+      "B": ["T3"]
+    },
+    "agent_mils": {
+      "A": 5,
+      "B": 3
+    }
+  },
+  "turns": [
+    {
+      "turn": 0,
+      "actions": {
+        "A": "{\"purchase_mils\": 2, \"attacks\": {\"B\": 1}, \"cede_territories\": {\"B\": [\"T1\"]}, \"money_grants\": {\"B\": 5}, \"messages\": {\"all\": \"hello\"}, \"summary\": \"turn0\"}",
+        "B": "{\"summary\": \"ok\"}"
+      },
+      "expected": {
+        "d_mil_purchase_intent": {"A": 2, "B": 0},
+        "d_global_attacks": {"A": {"B": 1}, "B": {}},
+        "d_territory_cession": {"A": {"B": ["T1"]}, "B": {}},
+        "d_money_grants": {"A": {"B": 5}, "B": {}},
+        "d_messages_sent": {"A": {"all": "hello"}, "B": {}},
+        "d_turn_summary": {"A": "turn0", "B": "ok"}
+      }
+    },
+    {
+      "turn": 1,
+      "actions": {
+        "A": "{\"summary\": \"s1\"}",
+        "B": "{\"purchase_mils\": 1, \"attacks\": {}, \"summary\": \"s1b\"}"
+      },
+      "expected": {
+        "d_mil_purchase_intent": {"A": 0, "B": 1},
+        "d_global_attacks": {"A": {}, "B": {}},
+        "d_turn_summary": {"A": "s1", "B": "s1b"}
+      }
+    }
+  ]
+}
