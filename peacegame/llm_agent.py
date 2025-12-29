@@ -109,6 +109,8 @@ class LLMDefaultAgent:
     def _build_messages(self, agent_input: Mapping[str, Any]) -> List[Dict[str, str]]:
         content_lines = ["Here is your current observable state as JSON:"]
         content_lines.append(json.dumps(agent_input, sort_keys=True))
+        if "turns_left" in agent_input:
+            content_lines.append(f"Turns left in round: {agent_input.get('turns_left')}")
         if agent_input.get("previous_turn_summary"):
             content_lines.append("Your previous summary:")
             content_lines.append(str(agent_input.get("previous_turn_summary", "")))

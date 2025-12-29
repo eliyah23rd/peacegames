@@ -166,6 +166,7 @@ class Phase0ScriptTests(unittest.TestCase):
             agent_mils=agent_mils,
             agent_welfare=agent_welfare,
         )
+        self.sim_engine.setup_round(total_turns=len(turns))
 
         turn_summaries: dict[str, str] = {a: "" for a in agent_names}
 

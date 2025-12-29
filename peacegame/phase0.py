@@ -123,6 +123,7 @@ def assemble_agent_inputs(
     turn_summaries: Mapping[str, str],
     news_report: str | None = None,
     agent_reports: Mapping[str, str] | None = None,
+    turns_left: int | None = None,
 ) -> Dict[str, dict]:
     """Build the per-agent input objects for Phase 0."""
     inputs: Dict[str, dict] = {}
@@ -144,6 +145,8 @@ def assemble_agent_inputs(
                 agent_input["previous_turn_news"] = news_report
             if agent_reports and agent in agent_reports:
                 agent_input["previous_turn_report"] = agent_reports[agent]
+        if turns_left is not None:
+            agent_input["turns_left"] = turns_left
         inputs[agent] = agent_input
     return inputs
 

@@ -77,6 +77,7 @@ def main() -> int:
         agent_mils=agent_mils,
         agent_welfare=agent_welfare,
     )
+    engine.setup_round(total_turns=num_turns)
 
     turn_summaries: Dict[str, str] = {a: "" for a in agent_names}
     for turn in range(num_turns):

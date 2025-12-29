@@ -95,6 +95,7 @@ class SimulationEngine:
         self.last_news_report: str = ""
         self.last_agent_reports: Dict[str, str] = {}
         self.last_purchase_price: int = 0
+        self.total_turns: int | None = None
 
     def close(self) -> None:
         headers = ["script", "turn", "agent", "phase", "ledger", "value"]
@@ -145,6 +146,9 @@ class SimulationEngine:
             self.agent_mils.setdefault(agent, 0)
             self.agent_welfare.setdefault(agent, 0)
 
+    def setup_round(self, *, total_turns: int) -> None:
+        self.total_turns = int(total_turns)
+
     def run_turn(
         self,
         *,
@@ -170,6 +174,7 @@ class SimulationEngine:
             turn_summaries=turn_summaries,
             news_report=self.last_news_report,
             agent_reports=self.last_agent_reports,
+            turns_left=self._turns_left(turn),
         )
         actions = call_agents_collect_actions(agents=agents, agent_inputs=inputs)
         self.log(f"Raw actions: {actions}")
@@ -316,6 +321,7 @@ class SimulationEngine:
             d_total_damage_received=d_total_damage_received,
             d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
             d_messages_sent=d_messages_sent,
+            d_grants_received=d_grants_received,
         )
         self.last_agent_reports = self._build_agent_reports(
             d_gross_income=d_gross_income,
@@ -453,6 +459,7 @@ class SimulationEngine:
         d_total_damage_received: Dict[str, int],
         d_mils_disbanded_upkeep: Dict[str, int],
         d_messages_sent: Dict[str, Dict[str, str]],
+        d_grants_received: Dict[str, Dict[str, int]],
     ) -> str:
         lines: List[str] = []
 
@@ -493,6 +500,14 @@ class SimulationEngine:
                 msg = d_messages_sent[sender][recipient]
                 msg_lines.append(f" - {sender} -> {recipient}: {msg}")
         lines.extend(msg_lines if msg_lines else [" - none"])
+
+        lines.append("Grants:")
+        grant_lines = []
+        for receiver in sorted(d_grants_received.keys()):
+            for giver in sorted(d_grants_received[receiver].keys()):
+                amt = d_grants_received[receiver][giver]
+                grant_lines.append(f" - {giver} -> {receiver}: {amt}")
+        lines.extend(grant_lines if grant_lines else [" - none"])
 
         return "\n".join(lines)
 
@@ -539,6 +554,12 @@ class SimulationEngine:
 
         return reports
 
+    def _turns_left(self, turn: int) -> int | None:
+        if self.total_turns is None:
+            return None
+        remaining = self.total_turns - (turn + 1)
+        return max(remaining, 0)
+
     def _ensure_dirs(self) -> None:
         os.makedirs("logs", exist_ok=True)
         os.makedirs("datasheets", exist_ok=True)
@@ -550,8 +571,19 @@ class SimulationEngine:
             "<tr>" + "".join(f"<th>{html.escape(h)}</th>" for h in headers) + "</tr>",
         ]
         for row in rows:
+            ledger = row[4] if len(row) > 4 else ""
+            value_style = ""
+            if ledger == "agent_welfare":
+                value_style = " style=\"background-color:#e6ffe6\""
+            elif ledger == "agent_mils":
+                value_style = " style=\"background-color:#e6f0ff\""
             lines.append(
-                "<tr>" + "".join(f"<td>{html.escape(str(cell))}</td>" for cell in row) + "</tr>"
+                "<tr>"
+                + "".join(
+                    f"<td{value_style if idx == 5 else ''}>{html.escape(str(cell))}</td>"
+                    for idx, cell in enumerate(row)
+                )
+                + "</tr>"
             )
         lines.append("</table></body></html>")
         with open(path, "w", encoding="utf-8") as f:

@@ -178,9 +178,18 @@ class Phase0Engine:
             "<tr>" + "".join(f"<th>{html.escape(h)}</th>" for h in headers) + "</tr>",
         ]
         for row in rows:
+            ledger = row[4] if len(row) > 4 else ""
+            value_style = ""
+            if ledger == "agent_welfare":
+                value_style = " style=\"background-color:#e6ffe6\""
+            elif ledger == "agent_mils":
+                value_style = " style=\"background-color:#e6f0ff\""
             lines.append(
                 "<tr>"
-                + "".join(f"<td>{html.escape(str(cell))}</td>" for cell in row)
+                + "".join(
+                    f"<td{value_style if idx == 5 else ''}>{html.escape(str(cell))}</td>"
+                    for idx, cell in enumerate(row)
+                )
                 + "</tr>"
             )
         lines.append("</table></body></html>")
