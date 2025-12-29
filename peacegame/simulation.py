@@ -331,6 +331,9 @@ class SimulationEngine:
             d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
             d_total_welfare_this_turn=d_total_welfare_this_turn,
+            d_available_money=d_available_money,
+            d_grants_received=d_grants_received,
+            d_trade_bonus=d_trade_bonus,
             start_mils=start_mils,
             end_mils=agent_mils,
             total_welfare=agent_welfare,
@@ -521,6 +524,9 @@ class SimulationEngine:
         d_mils_disbanded_upkeep: Dict[str, int],
         d_mils_lost_by_attacker: Dict[str, int],
         d_total_welfare_this_turn: Dict[str, int],
+        d_available_money: Dict[str, int],
+        d_grants_received: Dict[str, Dict[str, int]],
+        d_trade_bonus: Dict[str, int],
         start_mils: Dict[str, int],
         end_mils: Dict[str, int],
         total_welfare: Dict[str, int],
@@ -539,6 +545,9 @@ class SimulationEngine:
             lost = d_mils_lost_by_attacker.get(agent, 0)
             disbanded = d_mils_disbanded_upkeep.get(agent, 0)
             welfare_this = d_total_welfare_this_turn.get(agent, 0)
+            available = d_available_money.get(agent, 0)
+            grants_received = sum(d_grants_received.get(agent, {}).values())
+            trade_bonus = d_trade_bonus.get(agent, 0)
             total = total_welfare.get(agent, 0)
             rank = ranks.get(agent, total_agents)
             end = end_mils.get(agent, 0)
@@ -547,8 +556,16 @@ class SimulationEngine:
             lines = [
                 f"Income: gross={gross}, damage={damage}",
                 f"Costs: upkeep={upkeep}, purchases={purchase_cost}",
+                f"Grants: received={grants_received}, trade_bonus={trade_bonus}",
                 f"Army: start={start}, lost={lost}, disbanded={disbanded}, purchased={purchased}, end={end}",
-                f"Welfare: this_turn={welfare_this}, total={total}, rank={rank}/{total_agents}",
+                "Welfare: this_turn={w} = available_money={a} + grants_received={g} * trade_factor, total={t}, rank={r}/{n}".format(
+                    w=welfare_this,
+                    a=available,
+                    g=grants_received,
+                    t=total,
+                    r=rank,
+                    n=total_agents,
+                ),
             ]
             reports[agent] = "\n".join(lines)
 
@@ -572,15 +589,15 @@ class SimulationEngine:
         ]
         for row in rows:
             ledger = row[4] if len(row) > 4 else ""
-            value_style = ""
+            value_attr = ""
             if ledger == "agent_welfare":
-                value_style = " style=\"background-color:#e6ffe6\""
+                value_attr = " bgcolor=\"#e6ffe6\""
             elif ledger == "agent_mils":
-                value_style = " style=\"background-color:#e6f0ff\""
+                value_attr = " bgcolor=\"#e6f0ff\""
             lines.append(
                 "<tr>"
                 + "".join(
-                    f"<td{value_style if idx == 5 else ''}>{html.escape(str(cell))}</td>"
+                    f"<td{value_attr if idx == 5 else ''}>{html.escape(str(cell))}</td>"
                     for idx, cell in enumerate(row)
                 )
                 + "</tr>"

@@ -35,6 +35,7 @@ Use messaging extensively to influence other agents; they will read your message
 
 Your summary is your ONLY long-term memory. Whatever you include in summary is all you will remember on future turns.
 Preserve critical facts (e.g., ongoing wars, threats, promises, debts, alliances, recent attacks, and plans).
+Carry forward prior key facts and update them instead of dropping them; treat the summary as a rolling, compact log.
 
 Only refer to known agents and territories from the input. If unsure, do nothing for that field.
 """

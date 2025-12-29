@@ -1,16 +1,12 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
 from typing import Any, Dict
 
-from peacegame.llm_agent import (
-    DummyLLMProvider,
-    LLMDefaultAgent,
-    OpenAIProvider,
-    build_system_prompt,
-)
+from peacegame.llm_agent import DummyLLMProvider, LLMDefaultAgent, OpenAIProvider, build_system_prompt
 from peacegame.simulation import SimulationEngine
 
 
@@ -19,20 +15,33 @@ def _load_setup(path: str) -> Dict[str, Any]:
         return json.load(f)
 
 
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("setup", help="Path to initial_setup JSON")
+    parser.add_argument("--model", default=None, help="Override LLM model name")
+    parser.add_argument(
+        "modifiers",
+        nargs="*",
+        help="Prompt modifiers in agent order (comma-separated allowed)",
+    )
+    return parser.parse_args(argv)
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(
-            "Usage: python run_llm_simulation.py initial_setup/<file>.json [modifier1 modifier2 ...]"
+            "Usage: python run_llm_simulation.py initial_setup/<file>.json [--model MODEL] [modifier1 modifier2 ...]"
         )
         return 2
 
-    setup_path = sys.argv[1]
+    args = _parse_args(sys.argv[1:])
+    setup_path = args.setup
     setup = _load_setup(setup_path)
 
     constants = setup.get("constants", {})
     initial_state = setup.get("initial_state", {})
     num_turns = int(setup.get("num_turns", 1))
-    model = setup.get("model", "gpt-5-nano")
+    model = args.model or setup.get("model", "gpt-5-nano")
     name = setup.get("name", "llm_simulation")
 
     if os.environ.get("PEACEGAME_LLM_DUMMY", ""):
@@ -54,8 +63,9 @@ def main() -> int:
 
     agent_names = sorted(set(agent_territories) | set(agent_mils) | set(agent_welfare))
     modifiers = []
-    for raw in sys.argv[2:]:
+    for raw in args.modifiers:
         modifiers.extend([m for m in raw.split(",") if m])
+
     agents = {}
     for idx, agent_name in enumerate(agent_names):
         mod = modifiers[idx] if idx < len(modifiers) else ""

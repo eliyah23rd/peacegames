@@ -179,15 +179,15 @@ class Phase0Engine:
         ]
         for row in rows:
             ledger = row[4] if len(row) > 4 else ""
-            value_style = ""
+            value_attr = ""
             if ledger == "agent_welfare":
-                value_style = " style=\"background-color:#e6ffe6\""
+                value_attr = " bgcolor=\"#e6ffe6\""
             elif ledger == "agent_mils":
-                value_style = " style=\"background-color:#e6f0ff\""
+                value_attr = " bgcolor=\"#e6f0ff\""
             lines.append(
                 "<tr>"
                 + "".join(
-                    f"<td{value_style if idx == 5 else ''}>{html.escape(str(cell))}</td>"
+                    f"<td{value_attr if idx == 5 else ''}>{html.escape(str(cell))}</td>"
                     for idx, cell in enumerate(row)
                 )
                 + "</tr>"

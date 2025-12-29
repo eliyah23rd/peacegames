@@ -33,8 +33,8 @@
       "expected": {
         "news_report": "Attacks:\n - Alder -> Birch: 1\nDamage to attackers:\n - none\nIncome damage:\n - Birch: 2\nUpkeep disband:\n - none\nMessages:\n - Alder -> all: Peace?\nGrants:\n - none",
         "agent_reports": {
-          "Alder": "Income: gross=10, damage=0\nCosts: upkeep=4, purchases=0\nArmy: start=2, lost=0, disbanded=0, purchased=0, end=2\nWelfare: this_turn=6, total=6, rank=1/2",
-          "Birch": "Income: gross=10, damage=2\nCosts: upkeep=2, purchases=0\nArmy: start=1, lost=0, disbanded=0, purchased=0, end=1\nWelfare: this_turn=6, total=6, rank=2/2"
+          "Alder": "Income: gross=10, damage=0\nCosts: upkeep=4, purchases=0\nGrants: received=0, trade_bonus=0\nArmy: start=2, lost=0, disbanded=0, purchased=0, end=2\nWelfare: this_turn=6 = available_money=6 + grants_received=0 * trade_factor, total=6, rank=1/2",
+          "Birch": "Income: gross=10, damage=2\nCosts: upkeep=2, purchases=0\nGrants: received=0, trade_bonus=0\nArmy: start=1, lost=0, disbanded=0, purchased=0, end=1\nWelfare: this_turn=6 = available_money=6 + grants_received=0 * trade_factor, total=6, rank=2/2"
         }
       }
     }
