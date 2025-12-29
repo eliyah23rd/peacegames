@@ -12,7 +12,7 @@ Rules summary (engine enforced):
 - You may buy military units (mils) at a fixed price; they add next turn.
 - Mils incur upkeep each turn; if you cannot pay, some mils are disbanded.
 - You may attack other agents by allocating mils; attacks reduce target income.
-- Defenders cause proportional losses to attackers based on their defense mils.
+- Defenders cause proportional losses to attackers based on their defense mils (holding mils back for defense can destroy attackers).
 - You may grant money to other agents; recipients receive a trade bonus (trade factor).
 - You may cede territories to other agents (the only way ownership changes).
 - Messages are optional and do not directly affect the engine.
