@@ -96,6 +96,9 @@ class SimulationEngine:
         self.last_agent_reports: Dict[str, str] = {}
         self.last_purchase_price: int = 0
         self.total_turns: int | None = None
+        self.last_upkeep_price: int = 0
+        self.last_money_per_territory: int = 0
+        self.last_damage_per_attack_mil: int = 0
 
     def close(self) -> None:
         headers = ["script", "turn", "agent", "phase", "ledger", "value"]
@@ -194,6 +197,9 @@ class SimulationEngine:
             log_fn=self.log,
         )
         self.last_purchase_price = int(constants["c_mil_purchase_price"])
+        self.last_upkeep_price = int(constants["c_mil_upkeep_price"])
+        self.last_money_per_territory = int(constants["c_money_per_territory"])
+        self.last_damage_per_attack_mil = int(constants["c_damage_per_attack_mil"])
 
         d_global_attacks = _clamp_attacks_to_mils(
             d_global_attacks, agent_mils, log_fn=self.log
@@ -334,6 +340,7 @@ class SimulationEngine:
             d_available_money=d_available_money,
             d_grants_received=d_grants_received,
             d_trade_bonus=d_trade_bonus,
+            trade_factor=float(constants["c_trade_factor"]),
             start_mils=start_mils,
             end_mils=agent_mils,
             total_welfare=agent_welfare,
@@ -527,6 +534,7 @@ class SimulationEngine:
         d_available_money: Dict[str, int],
         d_grants_received: Dict[str, Dict[str, int]],
         d_trade_bonus: Dict[str, int],
+        trade_factor: float,
         start_mils: Dict[str, int],
         end_mils: Dict[str, int],
         total_welfare: Dict[str, int],
@@ -553,15 +561,23 @@ class SimulationEngine:
             end = end_mils.get(agent, 0)
             start = start_mils.get(agent, 0)
 
+            upkeep_price = self.last_upkeep_price
+            purchase_price = self.last_purchase_price
             lines = [
-                f"Income: gross={gross}, damage={damage}",
-                f"Costs: upkeep={upkeep}, purchases={purchase_cost}",
-                f"Grants: received={grants_received}, trade_bonus={trade_bonus}",
+                f"Income: gross={gross} (territories * {self.last_money_per_territory}), damage={damage} (attacks * {self.last_damage_per_attack_mil})",
+                f"Costs: upkeep={upkeep} ({start} units * {upkeep_price}), purchases={purchase_cost} ({purchased} units * {purchase_price})",
+                f"Grants: received={grants_received}, trade_bonus={trade_bonus}, trade_factor={trade_factor}",
                 f"Army: start={start}, lost={lost}, disbanded={disbanded}, purchased={purchased}, end={end}",
-                "Welfare: this_turn={w} = available_money={a} + grants_received={g} * trade_factor, total={t}, rank={r}/{n}".format(
+                "Welfare: this_turn={w} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid(see news) + grants_received({g})*trade_factor({tf}) = available_money({a}) + trade_bonus({tb}); total={t}, rank={r}/{n}".format(
                     w=welfare_this,
-                    a=available,
+                    gross=gross,
+                    damage=damage,
+                    upkeep=upkeep,
+                    purchase_cost=purchase_cost,
                     g=grants_received,
+                    tf=trade_factor,
+                    a=available,
+                    tb=trade_bonus,
                     t=total,
                     r=rank,
                     n=total_agents,

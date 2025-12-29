@@ -26,7 +26,7 @@
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/run_llm_simulation.py",
-      "args": ["initial_setup/simple_two_agent.json"],
+      "args": ["initial_setup/simple_two_agent.json", "--model", "gpt-5.1", "trade,pressure"],
       "cwd": "${workspaceFolder}",
       "justMyCode": true
     }
