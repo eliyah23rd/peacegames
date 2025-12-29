@@ -329,6 +329,12 @@ class SimulationEngine:
             end_mils=agent_mils,
             total_welfare=agent_welfare,
         )
+        self.log("Previous turn news report:")
+        self.log(self.last_news_report)
+        self.log("Previous turn agent reports:")
+        for agent in sorted(self.last_agent_reports.keys()):
+            self.log(f"[{agent}]")
+            self.log(self.last_agent_reports[agent])
 
         self._record_phase_rows(
             script_name,
