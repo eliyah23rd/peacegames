@@ -31,6 +31,11 @@ Schema details:
 - messages: object of {recipient_agent|"all": string}
 - summary: string (short, persistent memory for yourself)
 
+Use messaging extensively to influence other agents; they will read your messages and may change behavior.
+
+Your summary is your ONLY long-term memory. Whatever you include in summary is all you will remember on future turns.
+Preserve critical facts (e.g., ongoing wars, threats, promises, debts, alliances, recent attacks, and plans).
+
 Only refer to known agents and territories from the input. If unsure, do nothing for that field.
 """
 
@@ -102,11 +107,19 @@ class LLMDefaultAgent:
         self.system_prompt = system_prompt
 
     def _build_messages(self, agent_input: Mapping[str, Any]) -> List[Dict[str, str]]:
-        content = (
-            "Here is your current observable state as JSON:\n"
-            + json.dumps(agent_input, sort_keys=True)
-            + "\n\nReturn your action JSON now."
-        )
+        content_lines = ["Here is your current observable state as JSON:"]
+        content_lines.append(json.dumps(agent_input, sort_keys=True))
+        if agent_input.get("previous_turn_summary"):
+            content_lines.append("Your previous summary:")
+            content_lines.append(str(agent_input.get("previous_turn_summary", "")))
+        if agent_input.get("previous_turn_news"):
+            content_lines.append("Previous turn news report:")
+            content_lines.append(str(agent_input.get("previous_turn_news", "")))
+        if agent_input.get("previous_turn_report"):
+            content_lines.append("Your previous turn report:")
+            content_lines.append(str(agent_input.get("previous_turn_report", "")))
+        content_lines.append("Return your action JSON now.")
+        content = "\n".join(content_lines)
         return [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": content},

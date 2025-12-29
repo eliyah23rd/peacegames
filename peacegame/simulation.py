@@ -92,6 +92,9 @@ class SimulationEngine:
         self.agent_mils: Dict[str, int] = {}
         self.agent_welfare: Dict[str, int] = {}
         self.agent_names: List[str] = []
+        self.last_news_report: str = ""
+        self.last_agent_reports: Dict[str, str] = {}
+        self.last_purchase_price: int = 0
 
     def close(self) -> None:
         headers = ["script", "turn", "agent", "phase", "ledger", "value"]
@@ -165,6 +168,8 @@ class SimulationEngine:
             agent_mils=agent_mils,
             constants=constants,
             turn_summaries=turn_summaries,
+            news_report=self.last_news_report,
+            agent_reports=self.last_agent_reports,
         )
         actions = call_agents_collect_actions(agents=agents, agent_inputs=inputs)
         self.log(f"Raw actions: {actions}")
@@ -183,6 +188,7 @@ class SimulationEngine:
             max_summary_len=max_summary_len,
             log_fn=self.log,
         )
+        self.last_purchase_price = int(constants["c_mil_purchase_price"])
 
         d_global_attacks = _clamp_attacks_to_mils(
             d_global_attacks, agent_mils, log_fn=self.log
@@ -221,6 +227,7 @@ class SimulationEngine:
 
         d_upkeep_cost: Dict[str, int] = {}
         d_mils_disbanded_upkeep: Dict[str, int] = {}
+        start_mils = dict(agent_mils)
         for agent, mils in agent_mils.items():
             upkeep_price = int(constants["c_mil_upkeep_price"])
             d_upkeep_cost[agent] = mils * upkeep_price
@@ -302,6 +309,26 @@ class SimulationEngine:
                     if tid in agent_territories.get(giver, set()):
                         agent_territories[giver].remove(tid)
                         agent_territories.setdefault(receiver, set()).add(tid)
+
+        self.last_news_report = self._build_news_report(
+            d_global_attacks=d_global_attacks,
+            d_mils_lost_by_attacker=d_mils_lost_by_attacker,
+            d_total_damage_received=d_total_damage_received,
+            d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            d_messages_sent=d_messages_sent,
+        )
+        self.last_agent_reports = self._build_agent_reports(
+            d_gross_income=d_gross_income,
+            d_total_damage_received=d_total_damage_received,
+            d_upkeep_cost=d_upkeep_cost,
+            d_mil_purchased=d_mil_purchased,
+            d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            d_mils_lost_by_attacker=d_mils_lost_by_attacker,
+            d_total_welfare_this_turn=d_total_welfare_this_turn,
+            start_mils=start_mils,
+            end_mils=agent_mils,
+            total_welfare=agent_welfare,
+        )
 
         self._record_phase_rows(
             script_name,
@@ -386,6 +413,8 @@ class SimulationEngine:
             "agent_mils": dict(agent_mils),
             "agent_welfare": dict(agent_welfare),
             "agent_territories": {k: sorted(list(v)) for k, v in agent_territories.items()},
+            "news_report": self.last_news_report,
+            "agent_reports": dict(self.last_agent_reports),
         }
 
     def _record_phase_rows(
@@ -409,6 +438,100 @@ class SimulationEngine:
                         json.dumps(ledger.get(agent), sort_keys=True),
                     ]
                 )
+
+    def _build_news_report(
+        self,
+        *,
+        d_global_attacks: Dict[str, Dict[str, int]],
+        d_mils_lost_by_attacker: Dict[str, int],
+        d_total_damage_received: Dict[str, int],
+        d_mils_disbanded_upkeep: Dict[str, int],
+        d_messages_sent: Dict[str, Dict[str, str]],
+    ) -> str:
+        lines: List[str] = []
+
+        lines.append("Attacks:")
+        attack_lines = []
+        for attacker in sorted(d_global_attacks.keys()):
+            for target in sorted(d_global_attacks[attacker].keys()):
+                mils = d_global_attacks[attacker][target]
+                if mils > 0:
+                    attack_lines.append(f" - {attacker} -> {target}: {mils}")
+        lines.extend(attack_lines if attack_lines else [" - none"])
+
+        lines.append("Damage to attackers:")
+        dmg_lines = []
+        for attacker in sorted(d_mils_lost_by_attacker.keys()):
+            dmg_lines.append(f" - {attacker}: {d_mils_lost_by_attacker[attacker]}")
+        lines.extend(dmg_lines if dmg_lines else [" - none"])
+
+        lines.append("Income damage:")
+        income_lines = []
+        for agent in sorted(d_total_damage_received.keys()):
+            income_lines.append(f" - {agent}: {d_total_damage_received[agent]}")
+        lines.extend(income_lines if income_lines else [" - none"])
+
+        lines.append("Upkeep disband:")
+        disband_lines = []
+        for agent in sorted(d_mils_disbanded_upkeep.keys()):
+            if d_mils_disbanded_upkeep[agent] > 0:
+                disband_lines.append(
+                    f" - {agent}: {d_mils_disbanded_upkeep[agent]}"
+                )
+        lines.extend(disband_lines if disband_lines else [" - none"])
+
+        lines.append("Messages:")
+        msg_lines = []
+        for sender in sorted(d_messages_sent.keys()):
+            for recipient in sorted(d_messages_sent[sender].keys()):
+                msg = d_messages_sent[sender][recipient]
+                msg_lines.append(f" - {sender} -> {recipient}: {msg}")
+        lines.extend(msg_lines if msg_lines else [" - none"])
+
+        return "\n".join(lines)
+
+    def _build_agent_reports(
+        self,
+        *,
+        d_gross_income: Dict[str, int],
+        d_total_damage_received: Dict[str, int],
+        d_upkeep_cost: Dict[str, int],
+        d_mil_purchased: Dict[str, int],
+        d_mils_disbanded_upkeep: Dict[str, int],
+        d_mils_lost_by_attacker: Dict[str, int],
+        d_total_welfare_this_turn: Dict[str, int],
+        start_mils: Dict[str, int],
+        end_mils: Dict[str, int],
+        total_welfare: Dict[str, int],
+    ) -> Dict[str, str]:
+        reports: Dict[str, str] = {}
+        ranked = sorted(total_welfare.items(), key=lambda x: (-x[1], x[0]))
+        ranks = {agent: idx + 1 for idx, (agent, _) in enumerate(ranked)}
+        total_agents = len(ranked)
+
+        for agent in sorted(d_gross_income.keys()):
+            gross = d_gross_income.get(agent, 0)
+            damage = d_total_damage_received.get(agent, 0)
+            upkeep = d_upkeep_cost.get(agent, 0)
+            purchased = d_mil_purchased.get(agent, 0)
+            purchase_cost = purchased * self.last_purchase_price
+            lost = d_mils_lost_by_attacker.get(agent, 0)
+            disbanded = d_mils_disbanded_upkeep.get(agent, 0)
+            welfare_this = d_total_welfare_this_turn.get(agent, 0)
+            total = total_welfare.get(agent, 0)
+            rank = ranks.get(agent, total_agents)
+            end = end_mils.get(agent, 0)
+            start = start_mils.get(agent, 0)
+
+            lines = [
+                f"Income: gross={gross}, damage={damage}",
+                f"Costs: upkeep={upkeep}, purchases={purchase_cost}",
+                f"Army: start={start}, lost={lost}, disbanded={disbanded}, purchased={purchased}, end={end}",
+                f"Welfare: this_turn={welfare_this}, total={total}, rank={rank}/{total_agents}",
+            ]
+            reports[agent] = "\n".join(lines)
+
+        return reports
 
     def _ensure_dirs(self) -> None:
         os.makedirs("logs", exist_ok=True)

@@ -1,0 +1,42 @@
+{
+  "name": "news_and_reports",
+  "engine": "simulation",
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 5,
+    "c_mil_upkeep_price": 2,
+    "c_defense_destroy_factor": 2,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 2
+  },
+  "initial_state": {
+    "agent_territories": {
+      "Alder": ["Auron"],
+      "Birch": ["Bastion"]
+    },
+    "agent_mils": {
+      "Alder": 2,
+      "Birch": 1
+    },
+    "agent_welfare": {
+      "Alder": 0,
+      "Birch": 0
+    }
+  },
+  "turns": [
+    {
+      "turn": 0,
+      "actions": {
+        "Alder": "{\"attacks\": {\"Birch\": 1}, \"messages\": {\"all\": \"Peace?\"}}",
+        "Birch": "{}"
+      },
+      "expected": {
+        "news_report": "Attacks:\n - Alder -> Birch: 1\nDamage to attackers:\n - none\nIncome damage:\n - Birch: 2\nUpkeep disband:\n - none\nMessages:\n - Alder -> all: Peace?",
+        "agent_reports": {
+          "Alder": "Income: gross=10, damage=0\nCosts: upkeep=4, purchases=0\nArmy: start=2, lost=0, disbanded=0, purchased=0, end=2\nWelfare: this_turn=6, total=6, rank=1/2",
+          "Birch": "Income: gross=10, damage=2\nCosts: upkeep=2, purchases=0\nArmy: start=1, lost=0, disbanded=0, purchased=0, end=1\nWelfare: this_turn=6, total=6, rank=2/2"
+        }
+      }
+    }
+  ]
+}

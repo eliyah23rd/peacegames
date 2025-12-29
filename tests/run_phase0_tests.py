@@ -184,12 +184,19 @@ class Phase0ScriptTests(unittest.TestCase):
             expected = turn.get("expected", {})
             expected_state = expected.get("state", {})
             expected_ledgers = expected.get("ledgers", {})
+            expected_news = expected.get("news_report")
+            expected_reports = expected.get("agent_reports")
 
             for key, val in expected_ledgers.items():
                 self.assertEqual(results.get(key), val, f"Mismatch for {key} in {name}")
 
             for key, val in expected_state.items():
                 self.assertEqual(results.get(key), val, f"Mismatch for {key} in {name}")
+
+            if expected_news is not None:
+                self.assertEqual(results.get("news_report"), expected_news, f"Mismatch for news_report in {name}")
+            if expected_reports is not None:
+                self.assertEqual(results.get("agent_reports"), expected_reports, f"Mismatch for agent_reports in {name}")
 
             turn_summaries = results.get("d_turn_summary", turn_summaries)
 
