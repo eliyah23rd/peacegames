@@ -22,6 +22,7 @@ def run_agent_actions(
     if not agents:
         return actions
 
+    print(f"Running agent actions in parallel for {len(agents)} agents...")
     worker_count = max_workers or min(32, max(len(agents), 1))
     with ThreadPoolExecutor(max_workers=worker_count) as pool:
         future_map = {
@@ -35,4 +36,5 @@ def run_agent_actions(
             except Exception:
                 actions[name] = ""
 
+    print("Agent actions complete.")
     return actions
