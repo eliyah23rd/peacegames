@@ -50,6 +50,7 @@ PROMPT_MODIFIERS = {
     "expansion": "Focus on expanding territory via negotiated cessions.",
     "deterrence": "Maintain a credible army size relative to others.",
     "signals": "Use messages to clearly state your intentions and requests.",
+    "aggressive": "Spend all you can on mils, demand immediate multi-territory cessions, and attack all who do not comply. Never grant money; profit through fear.",
 }
 
 
