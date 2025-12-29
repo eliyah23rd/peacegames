@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Mapping, Set, Tuple
 
+from .agent_runner import run_agent_actions
+
 
 def _safe_int(x: Any, default: int = 0) -> int:
     """Convert to int safely. Non-convertible -> default."""
@@ -145,15 +147,8 @@ def call_agents_collect_actions(
     agents: Mapping[str, Any],
     agent_inputs: Mapping[str, dict],
 ) -> Dict[str, Any]:
-    """Safely call agents and collect raw action payloads."""
-    actions: Dict[str, Any] = {}
-    for agent_name, agent in agents.items():
-        try:
-            action = agent.act(agent_inputs[agent_name])
-        except Exception:
-            action = ""
-        actions[agent_name] = action
-    return actions
+    """Safely call agents and collect raw action payloads (parallel)."""
+    return run_agent_actions(agents=agents, agent_inputs=agent_inputs)
 
 
 def translate_agent_actions_to_intentions(
