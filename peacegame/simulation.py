@@ -122,6 +122,7 @@ class SimulationEngine:
         agent_mils: Mapping[str, int],
         agent_welfare: Mapping[str, int],
         constants: Mapping[str, Any],
+        prompt_modifiers: Mapping[str, str] | None = None,
     ) -> None:
         self.log(f"Script {script_name} start")
         self.log(
@@ -131,6 +132,8 @@ class SimulationEngine:
         self.log(f"Initial mils: {sorted(agent_mils.items())}")
         self.log(f"Initial welfare: {sorted(agent_welfare.items())}")
         self.log(f"Constants: {constants}")
+        if prompt_modifiers is not None:
+            self.log(f"Prompt modifiers: {prompt_modifiers}")
 
     def log_script_end(self, *, script_name: str) -> None:
         self.log(f"Script {script_name} end")
