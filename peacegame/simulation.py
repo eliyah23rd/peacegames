@@ -635,11 +635,13 @@ class SimulationEngine:
             rank = ranks.get(agent, total_agents)
             end = end_mils.get(agent, 0)
             start = start_mils.get(agent, 0)
+            damage_capped = min(damage, gross)
+            damage_wasted = max(damage - gross, 0)
 
             upkeep_price = self.last_upkeep_price
             purchase_price = self.last_purchase_price
             lines = [
-                f"Income: gross={gross} (territories * {self.last_money_per_territory}), damage={damage} (attacks * {self.last_damage_per_attack_mil})",
+                f"Income: gross={gross} (territories * {self.last_money_per_territory}), damage={damage} (attacks * {self.last_damage_per_attack_mil}), capped={damage_capped}, wasted={damage_wasted}",
                 f"Costs: upkeep={upkeep} ({start} units * {upkeep_price}), purchases={purchase_cost} ({purchased} units * {purchase_price})",
                 f"Grants: received={grants_received}, paid={grants_paid}, trade_bonus={trade_bonus}, trade_factor={trade_factor}",
                 f"Defense: defense_mils={defense_mils}, attacker_losses=defense_mils/{self.last_defense_destroy_factor}",

@@ -3,3 +3,5 @@
 - When damage per attack is high and defense-destroy factor is large, even small defensive forces can erase attacker mils; hold enough defense mils to make aggression unprofitable.
 - In late-game (last 1–2 turns), offensive builds rarely pay back; prioritize welfare and avoid purchases unless they reduce incoming damage.
 - If a hegemon emerges, neutral appeasement without deterrence can invite last-turn exploitation; maintain at least a minimal deterrent or negotiate binding compensation early.
+- If incoming damage is already capped at your gross income, extra attacker mils are wasted; attackers should reallocate to other targets or reduce attacks.
+- Don’t promise grants you cannot fund; recipients should verify actual grants in reports and adjust cooperation accordingly.

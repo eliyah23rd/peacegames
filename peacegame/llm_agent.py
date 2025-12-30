@@ -13,6 +13,7 @@ Rules summary (engine enforced):
 - Mils incur upkeep each turn; if you cannot pay, some mils are disbanded.
 - You may attack other agents by allocating mils; attacks reduce target income.
 - Defenders cause proportional losses to attackers based on their defense mils (holding mils back for defense can destroy attackers).
+- Damage to income is capped by the target's gross income for the turn; attacks beyond the cap are wasted.
 - You may grant money to other agents; recipients receive a trade bonus (trade factor).
 - You may cede territories to other agents (the only way ownership changes).
 - Messages are optional and do not directly affect the engine.
