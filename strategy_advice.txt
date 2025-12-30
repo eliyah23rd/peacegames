@@ -5,3 +5,5 @@
 - If a hegemon emerges, neutral appeasement without deterrence can invite last-turn exploitation; maintain at least a minimal deterrent or negotiate binding compensation early.
 - If incoming damage is already capped at your gross income, extra attacker mils are wasted; attackers should reallocate to other targets or reduce attacks.
 - Don’t promise grants you cannot fund; recipients should verify actual grants in reports and adjust cooperation accordingly.
+- In high-damage environments, a neutral deterrent posture can outperform both appeasement and aggression: avoid attacks, keep a modest army, and let others fight.
+- Late-round grants that are not reciprocated are pure welfare leakage; stop sending if the recipient cannot or does not repay.
