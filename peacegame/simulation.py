@@ -4,9 +4,11 @@ import datetime as dt
 import html
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Mapping, Set
 
 from .phase0 import assemble_agent_inputs, call_agents_collect_actions, translate_agent_actions_to_intentions
+from .visualizations import render_round_metrics
 
 
 def _transpose_attacks(d_global_attacks: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
@@ -100,6 +102,8 @@ class SimulationEngine:
         self.last_money_per_territory: int = 0
         self.last_damage_per_attack_mil: int = 0
         self.last_defense_destroy_factor: int = 0
+        self.per_turn_metrics: Dict[str, Dict[str, List[int]]] = {}
+        self.turns_seen: List[int] = []
 
     def close(self) -> None:
         headers = ["script", "turn", "agent", "phase", "ledger", "value"]
@@ -152,6 +156,8 @@ class SimulationEngine:
 
     def setup_round(self, *, total_turns: int) -> None:
         self.total_turns = int(total_turns)
+        self.per_turn_metrics = {}
+        self.turns_seen = []
 
     def run_turn(
         self,
@@ -433,6 +439,22 @@ class SimulationEngine:
         self.log(f"Turn {turn} end mils: {agent_mils}")
         self.log(f"Turn {turn} end territories: {agent_territories}")
 
+        self._record_metrics(
+            turn=turn,
+            d_total_welfare_this_turn=d_total_welfare_this_turn,
+            agent_welfare=agent_welfare,
+            d_attacking_mils=d_attacking_mils,
+            d_global_attacked=d_global_attacked,
+            agent_mils=agent_mils,
+            d_mils_lost_by_attacker=d_mils_lost_by_attacker,
+            d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            d_grants_paid=d_grants_paid,
+            d_grants_received=d_grants_received,
+            trade_factor=float(constants["c_trade_factor"]),
+        )
+        if self.total_turns is not None and turn == self.total_turns - 1:
+            self._render_visualization()
+
         return {
             "d_mil_purchase_intent": d_mil_purchase_intent,
             "d_global_attacks": d_global_attacks,
@@ -676,3 +698,75 @@ class SimulationEngine:
         lines.append("</table></body></html>")
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
+
+    def _record_metrics(
+        self,
+        *,
+        turn: int,
+        d_total_welfare_this_turn: Dict[str, int],
+        agent_welfare: Dict[str, int],
+        d_attacking_mils: Dict[str, int],
+        d_global_attacked: Dict[str, Dict[str, int]],
+        agent_mils: Dict[str, int],
+        d_mils_lost_by_attacker: Dict[str, int],
+        d_mils_disbanded_upkeep: Dict[str, int],
+        d_grants_paid: Dict[str, int],
+        d_grants_received: Dict[str, Dict[str, int]],
+        trade_factor: float,
+    ) -> None:
+        if not self.per_turn_metrics:
+            keys = [
+                "total_welfare",
+                "welfare_this_turn",
+                "attacks",
+                "attacks_received",
+                "army_size",
+                "mils_destroyed",
+                "mils_disbanded",
+                "trade_sent",
+                "trade_welfare_received",
+            ]
+            self.per_turn_metrics = {k: {a: [] for a in self.agent_names} for k in keys}
+
+        self.turns_seen.append(turn)
+        for agent in self.agent_names:
+            attacks_received = sum(
+                d_global_attacked.get(agent, {}).values()
+            )
+            grants_received = sum(d_grants_received.get(agent, {}).values())
+            self.per_turn_metrics["total_welfare"][agent].append(
+                agent_welfare.get(agent, 0)
+            )
+            self.per_turn_metrics["welfare_this_turn"][agent].append(
+                d_total_welfare_this_turn.get(agent, 0)
+            )
+            self.per_turn_metrics["attacks"][agent].append(
+                d_attacking_mils.get(agent, 0)
+            )
+            self.per_turn_metrics["attacks_received"][agent].append(attacks_received)
+            self.per_turn_metrics["army_size"][agent].append(agent_mils.get(agent, 0))
+            self.per_turn_metrics["mils_destroyed"][agent].append(
+                d_mils_lost_by_attacker.get(agent, 0)
+            )
+            self.per_turn_metrics["mils_disbanded"][agent].append(
+                d_mils_disbanded_upkeep.get(agent, 0)
+            )
+            self.per_turn_metrics["trade_sent"][agent].append(
+                d_grants_paid.get(agent, 0)
+            )
+            self.per_turn_metrics["trade_welfare_received"][agent].append(
+                int(grants_received * trade_factor)
+            )
+
+    def _render_visualization(self) -> None:
+        if not self.per_turn_metrics or not self.turns_seen:
+            return
+        out_dir = Path("visualizations")
+        log_stem = Path(self.log_path).stem
+        out_path = out_dir / f"{log_stem}.png"
+        render_round_metrics(
+            output_path=out_path,
+            turns=self.turns_seen,
+            agents=self.agent_names,
+            series=self.per_turn_metrics,
+        )
