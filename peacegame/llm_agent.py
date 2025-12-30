@@ -17,10 +17,13 @@ Rules summary (engine enforced):
 - You may grant money to other agents; recipients receive a trade bonus (trade factor).
 - You may cede territories to other agents (the only way ownership changes).
 - Messages are optional and do not directly affect the engine.
+- You may voluntarily disband mils at end of turn to reduce upkeep if no war is expected.
+- If no war is expected, consider setting disband_mils to reduce upkeep costs.
 
 Output requirements (STRICT):
 - Return ONLY a JSON object matching this schema and nothing else.
 - Allowed keys: purchase_mils, attacks, cede_territories, money_grants, messages, summary.
+- Allowed keys: purchase_mils, attacks, cede_territories, money_grants, messages, summary, disband_mils.
 - Missing fields are treated as no action.
 - Do not include any extra keys.
 
@@ -29,8 +32,9 @@ Schema details:
 - attacks: object of {target_agent: integer >= 0}
 - cede_territories: object of {recipient_agent: [territory_id, ...]}
 - money_grants: object of {recipient_agent: integer >= 0}
-- messages: object of {recipient_agent|"all": string}
-- summary: string (short, persistent memory for yourself)
+ - messages: object of {recipient_agent|"all": string}
+ - summary: string (short, persistent memory for yourself)
+ - disband_mils: integer >= 0 (voluntarily disband this many mils after the turn to save upkeep)
 
 Use messaging extensively to influence other agents; they will read your messages and may change behavior. Messages are delivered at the end of the turn, so they cannot affect same-turn actions. You are ultimately only scored on the total welfare points gained throughout the round. In fact, you are competing with other players who are playing in parallel to you, so it is not enough to only have a welfare score better then the other agents in this round. Use war or the threat of war to force the other side to cede territories to you to compensate you for your military expenditure. If you are on the recieving end, it might be better to cede a territory rather than have all your income destryed by enemy attacks. Alternatively you can agree to trade (it is only your word and theirs, the game does not enforce any agreements) so you give your income and they get the trade bonus and they give your their income and they get the bonus. With all that said, please keep you total messages to under 100 words to save costs in running the simulation.
 
@@ -51,7 +55,7 @@ PROMPT_MODIFIERS = {
     "expansion": "Focus on expanding territory via negotiated cessions.",
     "deterrence": "Maintain a credible army size relative to others.",
     "signals": "Use messages to clearly state your intentions and requests.",
-    "aggressive": "Spend all you can on mils, demand immediate multi-territory cessions, and attack all who do not comply. Never grant money; profit through fear. However, it is wise to focus on one victim at a time, pretending friendship to others.",
+    "aggressive": "Spend all you can on mils, demand immediate multi-territory cessions, and attack all who do not comply. Never grant money; profit through fear. Don't overextend yourself, pretending friendship if there are those you are not ready to attack until you can.",
 }
 
 

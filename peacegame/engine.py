@@ -68,6 +68,7 @@ class Phase0Engine:
             d_money_grants,
             d_messages_sent,
             d_turn_summary,
+            d_mils_disband_intent,
         ) = translate_agent_actions_to_intentions(
             actions,
             known_agents=set(agents.keys()),
@@ -133,6 +134,16 @@ class Phase0Engine:
                     str(turn),
                     agent,
                     "phase0",
+                    "d_mils_disband_intent",
+                    json.dumps(d_mils_disband_intent.get(agent, 0), sort_keys=True),
+                ]
+            )
+            self._rows.append(
+                [
+                    script_name,
+                    str(turn),
+                    agent,
+                    "phase0",
                     "d_turn_summary",
                     d_turn_summary.get(agent, ""),
                 ]
@@ -146,6 +157,7 @@ class Phase0Engine:
             d_money_grants,
             d_messages_sent,
             d_turn_summary,
+            d_mils_disband_intent,
         )
 
     def log_initial_state(

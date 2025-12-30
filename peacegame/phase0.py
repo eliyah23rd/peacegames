@@ -41,6 +41,7 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         "money_grants",
         "messages",
         "summary",
+        "disband_mils",
     }
     validated: Dict[str, Any] = {}
 
@@ -92,6 +93,12 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         validated["summary"] = summary
     elif summary is not None:
         _log(log_fn, "Agent summary rejected due to schema")
+
+    disband_mils = action.get("disband_mils")
+    if isinstance(disband_mils, int) and disband_mils >= 0:
+        validated["disband_mils"] = disband_mils
+    elif disband_mils is not None:
+        _log(log_fn, "Agent disband_mils rejected due to schema")
 
     return validated
 
@@ -174,6 +181,7 @@ def translate_agent_actions_to_intentions(
     Dict[str, Dict[str, int]],
     Dict[str, Dict[str, str]],
     Dict[str, str],
+    Dict[str, int],
 ]:
     """Translate raw agent JSON actions into intention ledgers."""
 
@@ -183,6 +191,7 @@ def translate_agent_actions_to_intentions(
     d_money_grants: Dict[str, Dict[str, int]] = {}
     d_messages_sent: Dict[str, Dict[str, str]] = {}
     d_turn_summary: Dict[str, str] = {}
+    d_mils_disband_intent: Dict[str, int] = {}
 
     for agent, raw_action in agent_actions.items():
         if agent not in known_agents:
@@ -194,6 +203,7 @@ def translate_agent_actions_to_intentions(
         money_grants: Dict[str, int] = {}
         messages: Dict[str, str] = {}
         summary = ""
+        disband_mils = 0
 
         try:
             action = _parse_action(raw_action, log_fn=log_fn)
@@ -267,6 +277,8 @@ def translate_agent_actions_to_intentions(
             if max_summary_len >= 0:
                 summary = summary[:max_summary_len]
 
+            disband_mils = _clamp_nonneg(_safe_int(action.get("disband_mils", 0), 0))
+
         except Exception:
             purchase_mils = 0
             attacks = {}
@@ -281,6 +293,7 @@ def translate_agent_actions_to_intentions(
         d_money_grants[agent] = money_grants
         d_messages_sent[agent] = messages
         d_turn_summary[agent] = summary
+        d_mils_disband_intent[agent] = disband_mils
 
     return (
         d_mil_purchase_intent,
@@ -289,6 +302,7 @@ def translate_agent_actions_to_intentions(
         d_money_grants,
         d_messages_sent,
         d_turn_summary,
+        d_mils_disband_intent,
     )
 
 
@@ -309,6 +323,7 @@ def run_phase0(
     Dict[str, Dict[str, int]],
     Dict[str, Dict[str, str]],
     Dict[str, str],
+    Dict[str, int],
 ]:
     """Execute Phase 0: build inputs, call agents, validate, and produce ledgers."""
     agent_names = list(agents.keys())

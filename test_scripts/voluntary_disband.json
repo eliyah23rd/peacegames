@@ -1,0 +1,40 @@
+{
+  "name": "voluntary_disband",
+  "engine": "simulation",
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 5,
+    "c_mil_upkeep_price": 2,
+    "c_defense_destroy_factor": 2,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 2
+  },
+  "initial_state": {
+    "agent_territories": {
+      "John": ["Auron"],
+      "Ruth": ["Bastion"]
+    },
+    "agent_mils": {
+      "John": 4,
+      "Ruth": 0
+    },
+    "agent_welfare": {
+      "John": 0,
+      "Ruth": 0
+    }
+  },
+  "turns": [
+    {
+      "turn": 0,
+      "actions": {
+        "John": "{\"disband_mils\": 3}",
+        "Ruth": "{}"
+      },
+      "expected": {
+        "state": {
+          "agent_mils": {"John": 1, "Ruth": 0}
+        }
+      }
+    }
+  ]
+}

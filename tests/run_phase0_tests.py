@@ -94,6 +94,7 @@ class Phase0ScriptTests(unittest.TestCase):
                 d_money_grants,
                 d_messages_sent,
                 d_turn_summary,
+                d_mils_disband_intent,
             ) = self.phase0_engine.run_turn(
                 script_name=name,
                 turn=turn_num,

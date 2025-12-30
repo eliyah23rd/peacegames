@@ -199,6 +199,7 @@ class SimulationEngine:
             d_money_grants,
             d_messages_sent,
             d_turn_summary,
+            d_mils_disband_intent,
         ) = translate_agent_actions_to_intentions(
             actions,
             known_agents=set(agents.keys()),
@@ -332,6 +333,13 @@ class SimulationEngine:
         for agent, purchased in d_mil_purchased.items():
             agent_mils[agent] = agent_mils.get(agent, 0) + purchased
 
+        d_mils_disbanded_voluntary: Dict[str, int] = {}
+        for agent, requested in d_mils_disband_intent.items():
+            current = agent_mils.get(agent, 0)
+            disband = min(requested, current)
+            d_mils_disbanded_voluntary[agent] = disband
+            agent_mils[agent] = current - disband
+
         for giver, cessions in d_territory_cession.items():
             for receiver, terrs in cessions.items():
                 for tid in terrs:
@@ -354,6 +362,7 @@ class SimulationEngine:
             d_territory_cession=d_territory_cession,
             d_gross_income=d_gross_income,
             attack_clamps=attack_clamps,
+            d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
         )
         self.last_agent_reports = self._build_agent_reports(
             d_gross_income=d_gross_income,
@@ -369,6 +378,7 @@ class SimulationEngine:
             d_trade_bonus=d_trade_bonus,
             trade_factor=float(constants["c_trade_factor"]),
             d_defense_mils=d_defense_mils,
+            d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
             start_mils=start_mils,
             end_mils=agent_mils,
             total_welfare=agent_welfare,
@@ -390,6 +400,7 @@ class SimulationEngine:
             ("d_territory_cession", d_territory_cession),
             ("d_money_grants", d_money_grants),
             ("d_messages_sent", d_messages_sent),
+            ("d_mils_disband_intent", d_mils_disband_intent),
         )
         self._record_phase_rows(script_name, turn, "phase1", ("d_gross_income", d_gross_income))
         self._record_phase_rows(
@@ -451,6 +462,7 @@ class SimulationEngine:
             agent_mils=agent_mils,
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
             d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
             d_grants_paid=d_grants_paid,
             d_grants_received=d_grants_received,
             trade_factor=float(constants["c_trade_factor"]),
@@ -517,6 +529,7 @@ class SimulationEngine:
         d_territory_cession: Dict[str, Dict[str, List[str]]],
         d_gross_income: Dict[str, int],
         attack_clamps: Dict[str, tuple[int, int]],
+        d_mils_disbanded_voluntary: Dict[str, int],
     ) -> str:
         lines: List[str] = []
 
@@ -558,6 +571,15 @@ class SimulationEngine:
                     f" - {agent}: {d_mils_disbanded_upkeep[agent]}"
                 )
         lines.extend(disband_lines if disband_lines else [" - none"])
+
+        lines.append("Voluntary disband:")
+        voluntary_lines = []
+        for agent in sorted(d_mils_disbanded_voluntary.keys()):
+            if d_mils_disbanded_voluntary[agent] > 0:
+                voluntary_lines.append(
+                    f" - {agent}: {d_mils_disbanded_voluntary[agent]}"
+                )
+        lines.extend(voluntary_lines if voluntary_lines else [" - none"])
 
         lines.append("Messages:")
         msg_lines = []
@@ -611,6 +633,7 @@ class SimulationEngine:
         d_trade_bonus: Dict[str, int],
         trade_factor: float,
         d_defense_mils: Dict[str, int],
+        d_mils_disbanded_voluntary: Dict[str, int],
         start_mils: Dict[str, int],
         end_mils: Dict[str, int],
         total_welfare: Dict[str, int],
@@ -634,6 +657,7 @@ class SimulationEngine:
             grants_paid = d_grants_paid.get(agent, 0)
             trade_bonus = d_trade_bonus.get(agent, 0)
             defense_mils = d_defense_mils.get(agent, 0)
+            voluntary = d_mils_disbanded_voluntary.get(agent, 0)
             total = total_welfare.get(agent, 0)
             rank = ranks.get(agent, total_agents)
             end = end_mils.get(agent, 0)
@@ -648,7 +672,7 @@ class SimulationEngine:
                 f"Costs: upkeep={upkeep} ({start} units * {upkeep_price}), purchases={purchase_cost} ({purchased} units * {purchase_price})",
                 f"Grants: received={grants_received}, paid={grants_paid}, trade_bonus={trade_bonus}, trade_factor={trade_factor}",
                 f"Defense: defense_mils={defense_mils}, attacker_losses=defense_mils/{self.last_defense_destroy_factor}",
-                f"Army: start={start}, lost={lost}, disbanded={disbanded}, purchased={purchased}, end={end}",
+                f"Army: start={start}, lost={lost}, disbanded={disbanded}, voluntary_disband={voluntary}, purchased={purchased}, end={end}",
                 "Welfare: this_turn={w} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid({gp}) + grants_received({g})*trade_factor({tf}) = available_money({a}) + trade_bonus({tb}); total={t}, rank={r}/{n}".format(
                     w=welfare_this,
                     gross=gross,
@@ -718,6 +742,7 @@ class SimulationEngine:
         d_grants_paid: Dict[str, int],
         d_grants_received: Dict[str, Dict[str, int]],
         trade_factor: float,
+        d_mils_disbanded_voluntary: Dict[str, int],
     ) -> None:
         if not self.per_turn_metrics:
             keys = [
@@ -755,6 +780,7 @@ class SimulationEngine:
             )
             self.per_turn_metrics["mils_disbanded"][agent].append(
                 d_mils_disbanded_upkeep.get(agent, 0)
+                + d_mils_disbanded_voluntary.get(agent, 0)
             )
             self.per_turn_metrics["trade_sent"][agent].append(
                 d_grants_paid.get(agent, 0)

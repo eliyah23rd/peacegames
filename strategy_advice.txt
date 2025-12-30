@@ -7,3 +7,4 @@
 - Don’t promise grants you cannot fund; recipients should verify actual grants in reports and adjust cooperation accordingly.
 - In high-damage environments, a neutral deterrent posture can outperform both appeasement and aggression: avoid attacks, keep a modest army, and let others fight.
 - Late-round grants that are not reciprocated are pure welfare leakage; stop sending if the recipient cannot or does not repay.
+- In sustained peace with no credible threats, disband mils to avoid upkeep drag; zero mils can outperform holding deterrent.
