@@ -1,0 +1,33 @@
+{
+  "name": "four_agent_violent",
+  "model": "gpt-5-nano",
+  "num_turns": 8,
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 4,
+    "c_mil_upkeep_price": 2,
+    "c_defense_destroy_factor": 8,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 10
+  },
+  "initial_state": {
+    "agent_territories": {
+      "John": ["Auron", "Bastion", "Caldera", "Driftwood", "Everspring", "Frostvale"],
+      "Ruth": ["Gildhaven", "Highmoor", "Ironridge", "Jasperin", "KestrelBay", "Larkspur"],
+      "Dima": ["Mistwood", "Northmarch", "Oakenspire", "Pinewatch", "Queensrest", "Ravenport"],
+      "Ahmed": ["Stonegate", "Thistledown", "Umberfall", "Valewood", "Westreach", "Yellowseed"]
+    },
+    "agent_mils": {
+      "John": 0,
+      "Ruth": 0,
+      "Dima": 0,
+      "Ahmed": 0
+    },
+    "agent_welfare": {
+      "John": 0,
+      "Ruth": 0,
+      "Dima": 0,
+      "Ahmed": 0
+    }
+  }
+}

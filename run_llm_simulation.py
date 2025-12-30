@@ -75,6 +75,12 @@ def main() -> int:
         )
 
     engine = SimulationEngine(run_label=name)
+    if modifiers:
+        mod_map = {
+            agent_names[i]: modifiers[i]
+            for i in range(min(len(agent_names), len(modifiers)))
+        }
+        engine.log(f"Prompt modifiers: {mod_map}")
     engine.log_initial_state(
         script_name=name,
         agent_territories=agent_territories,

@@ -203,9 +203,16 @@ class SimulationEngine:
         self.last_damage_per_attack_mil = int(constants["c_damage_per_attack_mil"])
         self.last_defense_destroy_factor = int(constants["c_defense_destroy_factor"])
 
+        original_attacks = {k: dict(v) for k, v in d_global_attacks.items()}
         d_global_attacks = _clamp_attacks_to_mils(
             d_global_attacks, agent_mils, log_fn=self.log
         )
+        attack_clamps: Dict[str, tuple[int, int]] = {}
+        for attacker, targets in original_attacks.items():
+            before = sum(targets.values())
+            after = sum(d_global_attacks.get(attacker, {}).values())
+            if before != after:
+                attack_clamps[attacker] = (before, after)
 
         d_gross_income: Dict[str, int] = {}
         for agent, territories in agent_territories.items():
@@ -323,6 +330,11 @@ class SimulationEngine:
                         agent_territories[giver].remove(tid)
                         agent_territories.setdefault(receiver, set()).add(tid)
 
+        d_grants_paid: Dict[str, int] = {}
+        for receiver, grants in d_grants_received.items():
+            for giver, amt in grants.items():
+                d_grants_paid[giver] = d_grants_paid.get(giver, 0) + amt
+
         self.last_news_report = self._build_news_report(
             d_global_attacks=d_global_attacks,
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
@@ -330,6 +342,9 @@ class SimulationEngine:
             d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
             d_messages_sent=d_messages_sent,
             d_grants_received=d_grants_received,
+            d_territory_cession=d_territory_cession,
+            d_gross_income=d_gross_income,
+            attack_clamps=attack_clamps,
         )
         self.last_agent_reports = self._build_agent_reports(
             d_gross_income=d_gross_income,
@@ -341,6 +356,7 @@ class SimulationEngine:
             d_total_welfare_this_turn=d_total_welfare_this_turn,
             d_available_money=d_available_money,
             d_grants_received=d_grants_received,
+            d_grants_paid=d_grants_paid,
             d_trade_bonus=d_trade_bonus,
             trade_factor=float(constants["c_trade_factor"]),
             d_defense_mils=d_defense_mils,
@@ -473,6 +489,9 @@ class SimulationEngine:
         d_mils_disbanded_upkeep: Dict[str, int],
         d_messages_sent: Dict[str, Dict[str, str]],
         d_grants_received: Dict[str, Dict[str, int]],
+        d_territory_cession: Dict[str, Dict[str, List[str]]],
+        d_gross_income: Dict[str, int],
+        attack_clamps: Dict[str, tuple[int, int]],
     ) -> str:
         lines: List[str] = []
 
@@ -496,6 +515,15 @@ class SimulationEngine:
         for agent in sorted(d_total_damage_received.keys()):
             income_lines.append(f" - {agent}: {d_total_damage_received[agent]}")
         lines.extend(income_lines if income_lines else [" - none"])
+
+        lines.append("Damage cap:")
+        cap_lines = []
+        for agent in sorted(d_total_damage_received.keys()):
+            if d_total_damage_received[agent] > d_gross_income.get(agent, 0):
+                cap_lines.append(
+                    f" - {agent}: capped at {d_gross_income.get(agent, 0)}"
+                )
+        lines.extend(cap_lines if cap_lines else [" - none"])
 
         lines.append("Upkeep disband:")
         disband_lines = []
@@ -522,6 +550,24 @@ class SimulationEngine:
                 grant_lines.append(f" - {giver} -> {receiver}: {amt}")
         lines.extend(grant_lines if grant_lines else [" - none"])
 
+        lines.append("Cessions:")
+        cession_lines = []
+        for giver in sorted(d_territory_cession.keys()):
+            for receiver in sorted(d_territory_cession[giver].keys()):
+                terrs = d_territory_cession[giver][receiver]
+                if terrs:
+                    cession_lines.append(
+                        f" - {giver} -> {receiver}: {', '.join(sorted(terrs))}"
+                    )
+        lines.extend(cession_lines if cession_lines else [" - none"])
+
+        lines.append("Attack limits:")
+        clamp_lines = []
+        for attacker in sorted(attack_clamps.keys()):
+            before, after = attack_clamps[attacker]
+            clamp_lines.append(f" - {attacker}: {before} -> {after}")
+        lines.extend(clamp_lines if clamp_lines else [" - none"])
+
         return "\n".join(lines)
 
     def _build_agent_reports(
@@ -536,6 +582,7 @@ class SimulationEngine:
         d_total_welfare_this_turn: Dict[str, int],
         d_available_money: Dict[str, int],
         d_grants_received: Dict[str, Dict[str, int]],
+        d_grants_paid: Dict[str, int],
         d_trade_bonus: Dict[str, int],
         trade_factor: float,
         d_defense_mils: Dict[str, int],
@@ -559,6 +606,7 @@ class SimulationEngine:
             welfare_this = d_total_welfare_this_turn.get(agent, 0)
             available = d_available_money.get(agent, 0)
             grants_received = sum(d_grants_received.get(agent, {}).values())
+            grants_paid = d_grants_paid.get(agent, 0)
             trade_bonus = d_trade_bonus.get(agent, 0)
             defense_mils = d_defense_mils.get(agent, 0)
             total = total_welfare.get(agent, 0)
@@ -571,15 +619,16 @@ class SimulationEngine:
             lines = [
                 f"Income: gross={gross} (territories * {self.last_money_per_territory}), damage={damage} (attacks * {self.last_damage_per_attack_mil})",
                 f"Costs: upkeep={upkeep} ({start} units * {upkeep_price}), purchases={purchase_cost} ({purchased} units * {purchase_price})",
-                f"Grants: received={grants_received}, trade_bonus={trade_bonus}, trade_factor={trade_factor}",
+                f"Grants: received={grants_received}, paid={grants_paid}, trade_bonus={trade_bonus}, trade_factor={trade_factor}",
                 f"Defense: defense_mils={defense_mils}, attacker_losses=defense_mils/{self.last_defense_destroy_factor}",
                 f"Army: start={start}, lost={lost}, disbanded={disbanded}, purchased={purchased}, end={end}",
-                "Welfare: this_turn={w} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid(see news) + grants_received({g})*trade_factor({tf}) = available_money({a}) + trade_bonus({tb}); total={t}, rank={r}/{n}".format(
+                "Welfare: this_turn={w} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid({gp}) + grants_received({g})*trade_factor({tf}) = available_money({a}) + trade_bonus({tb}); total={t}, rank={r}/{n}".format(
                     w=welfare_this,
                     gross=gross,
                     damage=damage,
                     upkeep=upkeep,
                     purchase_cost=purchase_cost,
+                    gp=grants_paid,
                     g=grants_received,
                     tf=trade_factor,
                     a=available,
