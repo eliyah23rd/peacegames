@@ -254,7 +254,7 @@ def _render_layout_png(
 
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl")
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle
+    from matplotlib.patches import Polygon
 
     if not positions:
         return
@@ -267,9 +267,33 @@ def _render_layout_png(
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_aspect("equal")
 
+    def jittered_tile(name: str, x: float, y: float) -> List[Coord]:
+        rng = random.Random(f"{name}:{x}:{y}")
+        jitter = 0.12
+        pts: List[Coord] = []
+        # Bottom edge
+        pts.append((x + rng.uniform(-jitter, jitter), y + rng.uniform(-jitter, jitter)))
+        pts.append((x + 0.5 + rng.uniform(-jitter, jitter), y + rng.uniform(-jitter, jitter)))
+        pts.append((x + 1 + rng.uniform(-jitter, jitter), y + rng.uniform(-jitter, jitter)))
+        # Right edge
+        pts.append((x + 1 + rng.uniform(-jitter, jitter), y + 0.5 + rng.uniform(-jitter, jitter)))
+        pts.append((x + 1 + rng.uniform(-jitter, jitter), y + 1 + rng.uniform(-jitter, jitter)))
+        # Top edge
+        pts.append((x + 0.5 + rng.uniform(-jitter, jitter), y + 1 + rng.uniform(-jitter, jitter)))
+        pts.append((x + rng.uniform(-jitter, jitter), y + 1 + rng.uniform(-jitter, jitter)))
+        # Left edge
+        pts.append((x + rng.uniform(-jitter, jitter), y + 0.5 + rng.uniform(-jitter, jitter)))
+        return pts
+
     for name, (x, y) in positions.items():
-        rect = Rectangle((x, y), 1, 1, facecolor="#f2e9e4", edgecolor="#5a4f4b")
-        ax.add_patch(rect)
+        poly = Polygon(
+            jittered_tile(name, x, y),
+            closed=True,
+            facecolor="#f2e9e4",
+            edgecolor="#5a4f4b",
+            linewidth=1.2,
+        )
+        ax.add_patch(poly)
         ax.text(
             x + 0.5,
             y + 0.5,

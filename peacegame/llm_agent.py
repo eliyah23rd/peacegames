@@ -15,6 +15,7 @@ Rules summary (engine enforced):
 - Defenders cause proportional losses to attackers based on their defense mils (holding mils back for defense can destroy attackers).
 - Damage to income is capped by the target's gross income for the turn; attacks beyond the cap are wasted.
 - You may grant money to other agents; recipients receive a trade bonus (trade factor).
+- Money grants only add to welfare (via trade bonus + transfer) and cannot be used for purchases or upkeep.
 - You may cede territories to other agents (the only way ownership changes).
 - Messages are optional and do not directly affect the engine.
 - You may voluntarily disband mils at end of turn to reduce upkeep if no war is expected.
