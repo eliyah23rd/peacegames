@@ -198,12 +198,6 @@ class Phase0Engine:
                 ]
             )
 
-        for agent in sorted(agents.keys()):
-            self.log(f"Agent {agent} summary_last_turn: {d_summary_last_turn.get(agent, '')}")
-            self.log(f"Agent {agent} history_summary: {d_history_summary.get(agent, '')}")
-            self.log(f"Agent {agent} reasoning: {d_reasoning.get(agent, '')}")
-            self.log(f"Agent {agent} keeps_word_report: {d_keeps_word_report.get(agent, {})}")
-            self.log(f"Agent {agent} aggressor_report: {d_aggressor_report.get(agent, {})}")
         return (
             d_mil_purchase_intent,
             d_global_attacks,

@@ -232,10 +232,6 @@ class SimulationEngine:
             turns_left=self._turns_left(turn),
             history_contexts=self._build_history_contexts(),
         )
-        for agent in sorted(inputs.keys()):
-            history_context = inputs[agent].get("history_context", "")
-            if history_context:
-                self.log(f"History context for {agent}: {history_context}")
         actions = call_agents_collect_actions(agents=agents, agent_inputs=inputs)
         self.log(f"Raw actions: {actions}")
 
@@ -450,11 +446,6 @@ class SimulationEngine:
         for agent in sorted(self.last_agent_reports.keys()):
             self.log(f"[{agent}]")
             self.log(self.last_agent_reports[agent])
-            self.log(f"Agent {agent} summary_last_turn: {d_summary_last_turn.get(agent, '')}")
-            self.log(f"Agent {agent} history_summary: {d_history_summary.get(agent, '')}")
-            self.log(f"Agent {agent} reasoning: {d_reasoning.get(agent, '')}")
-            self.log(f"Agent {agent} keeps_word_report: {d_keeps_word_report.get(agent, {})}")
-            self.log(f"Agent {agent} aggressor_report: {d_aggressor_report.get(agent, {})}")
 
         self._record_phase_rows(
             script_name,
