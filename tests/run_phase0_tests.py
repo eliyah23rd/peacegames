@@ -170,6 +170,7 @@ class Phase0ScriptTests(unittest.TestCase):
             agent_territories=agent_territories,
             agent_mils=agent_mils,
             agent_welfare=agent_welfare,
+            territory_seed=42,
         )
         self.sim_engine.setup_round(total_turns=len(turns))
 

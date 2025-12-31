@@ -191,7 +191,7 @@ class SimulationEngine:
         agent_territories: Mapping[str, Set[str]],
         agent_mils: Mapping[str, int],
         agent_welfare: Mapping[str, int],
-        territory_seed: int | None = 42,
+        territory_seed: int | None = None,
         use_generated_territories: bool = False,
     ) -> None:
         self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
