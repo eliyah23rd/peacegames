@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import random
+from pathlib import Path
 from typing import Dict, Iterable, List, Set, Tuple
 
 
@@ -79,3 +81,87 @@ def average_degree(graph: Dict[str, Set[str]]) -> float:
     if not graph:
         return 0.0
     return sum(len(v) for v in graph.values()) / len(graph)
+
+
+def _load_names(path: Path) -> List[str]:
+    if not path.exists():
+        return []
+    names: List[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        names.append(line)
+    return names
+
+
+def _render_layout_png(
+    positions: Dict[str, Coord],
+    *,
+    out_path: Path,
+) -> None:
+    import os
+
+    os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+
+    if not positions:
+        return
+
+    xs = [coord[0] for coord in positions.values()]
+    ys = [coord[1] for coord in positions.values()]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.set_aspect("equal")
+
+    for name, (x, y) in positions.items():
+        rect = Rectangle((x, y), 1, 1, facecolor="#f2e9e4", edgecolor="#5a4f4b")
+        ax.add_patch(rect)
+        ax.text(
+            x + 0.5,
+            y + 0.5,
+            name,
+            ha="center",
+            va="center",
+            fontsize=7,
+        )
+
+    ax.set_xlim(min_x - 1, max_x + 2)
+    ax.set_ylim(min_y - 1, max_y + 2)
+    ax.axis("off")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=160)
+    plt.close(fig)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate territory connectivity.")
+    parser.add_argument("--show", action="store_true", help="Render layout PNG")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--names",
+        type=str,
+        default="names/territories.txt",
+        help="Path to territories list",
+    )
+    args = parser.parse_args()
+
+    names_path = Path(args.names)
+    names = _load_names(names_path)
+    if not names:
+        names = [f"Terr{i}" for i in range(20)]
+
+    _, positions = build_territory_graph(names, seed=args.seed)
+    if args.show:
+        out_path = Path("visualizations") / "territory_layout.png"
+        _render_layout_png(positions, out_path=out_path)
+        print(f"Saved layout PNG to {out_path}")
+
+
+if __name__ == "__main__":
+    main()
