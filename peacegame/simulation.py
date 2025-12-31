@@ -192,6 +192,7 @@ class SimulationEngine:
         agent_mils: Mapping[str, int],
         agent_welfare: Mapping[str, int],
         territory_seed: int | None = 42,
+        use_generated_territories: bool = False,
     ) -> None:
         self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
         self.agent_mils = {k: int(v) for k, v in agent_mils.items()}
@@ -207,17 +208,28 @@ class SimulationEngine:
             self.history_summary.setdefault(agent, "")
             self.summary_log.setdefault(agent, [])
 
-        territory_names = sorted(
+        provided_territories = sorted(
             {t for terrs in self.agent_territories.values() for t in terrs}
         )
-        if not territory_names:
+        if use_generated_territories:
+            desired_count = len(provided_territories)
             territory_names = load_territory_names(Path("names") / "territories.txt")
+            if desired_count > 0:
+                if len(territory_names) < desired_count:
+                    territory_names.extend(
+                        [f"Terr{i}" for i in range(len(territory_names), desired_count)]
+                    )
+                territory_names = territory_names[:desired_count]
+        else:
+            territory_names = provided_territories
+            if not territory_names:
+                territory_names = load_territory_names(Path("names") / "territories.txt")
         self.territory_graph, self.territory_positions = build_territory_graph(
             territory_names,
             seed=territory_seed,
         )
         self.territory_names = sorted(self.territory_graph.keys())
-        if all(len(terrs) == 0 for terrs in self.agent_territories.values()):
+        if use_generated_territories or all(len(terrs) == 0 for terrs in self.agent_territories.values()):
             assigned = assign_territories_round_robin(
                 self.agent_names,
                 self.territory_graph,

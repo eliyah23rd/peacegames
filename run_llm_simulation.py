@@ -93,6 +93,7 @@ def main() -> int:
         agent_territories=agent_territories,
         agent_mils=agent_mils,
         agent_welfare=agent_welfare,
+        use_generated_territories=True,
     )
     engine.setup_round(total_turns=num_turns)
 

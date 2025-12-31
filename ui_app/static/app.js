@@ -6,16 +6,16 @@ const state = {
 };
 
 const palette = [
-  "#2a9d8f",
-  "#e76f51",
-  "#264653",
-  "#f4a261",
-  "#8ab17d",
-  "#c08497",
-  "#577590",
-  "#f6bd60",
-  "#4d908e",
-  "#f3722c",
+  "#34a39a",
+  "#e98467",
+  "#5f7a75",
+  "#f4b073",
+  "#93bd8a",
+  "#c995a7",
+  "#6f879e",
+  "#f7c372",
+  "#5aa39a",
+  "#f58a4b",
 ];
 
 const dataFileSelect = document.getElementById("dataFileSelect");
