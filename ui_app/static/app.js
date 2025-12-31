@@ -38,6 +38,7 @@ const mapTurnLabel = document.getElementById("mapTurnLabel");
 const mapPrevTurnBtn = document.getElementById("mapPrevTurnBtn");
 const mapNextTurnBtn = document.getElementById("mapNextTurnBtn");
 const mapBackBtn = document.getElementById("mapBackBtn");
+const mapLegend = document.getElementById("mapLegend");
 
 async function loadFiles() {
   const res = await fetch("/api/files");
@@ -254,7 +255,7 @@ function renderMap() {
 
   const ownerRow = territory_owners[turnIdx] || [];
   const label = territory_names.length <= 40;
-  const jitter = 0.22;
+  const jitter = 0.18;
   const vertexCache = new Map();
   const edgeCache = new Map();
 
@@ -294,18 +295,15 @@ function renderMap() {
       const s = jitterPoint(sKey, start);
       const e = jitterPoint(eKey, end);
       const isVertical = start[0] === end[0];
+      const offset = (hashToUnit(`${key}:c`) * 2 - 1) * jitter;
       let c1;
       let c2;
       if (isVertical) {
-        const j1 = (hashToUnit(`${key}:c1`) * 2 - 1) * jitter;
-        const j2 = (hashToUnit(`${key}:c2`) * 2 - 1) * jitter;
-        c1 = [s[0] + j1, s[1] + (e[1] - s[1]) * 0.33];
-        c2 = [s[0] + j2, s[1] + (e[1] - s[1]) * 0.66];
+        c1 = [s[0] + offset, s[1] + (e[1] - s[1]) * 0.33];
+        c2 = [s[0] + offset, s[1] + (e[1] - s[1]) * 0.66];
       } else {
-        const j1 = (hashToUnit(`${key}:c1`) * 2 - 1) * jitter;
-        const j2 = (hashToUnit(`${key}:c2`) * 2 - 1) * jitter;
-        c1 = [s[0] + (e[0] - s[0]) * 0.33, s[1] + j1];
-        c2 = [s[0] + (e[0] - s[0]) * 0.66, s[1] + j2];
+        c1 = [s[0] + (e[0] - s[0]) * 0.33, s[1] + offset];
+        c2 = [s[0] + (e[0] - s[0]) * 0.66, s[1] + offset];
       }
       edgeCache.set(key, {
         start: key.split("|")[0].split(",").map(Number),
@@ -324,6 +322,16 @@ function renderMap() {
     offsetX + (pt[0] - minX) * cellSize,
     offsetY + (pt[1] - minY) * cellSize,
   ];
+
+  mapLegend.innerHTML = "";
+  state.data.agents.forEach((agent, idx) => {
+    const item = document.createElement("span");
+    const dot = document.createElement("i");
+    dot.style.background = palette[idx % palette.length];
+    item.appendChild(dot);
+    item.appendChild(document.createTextNode(agent));
+    mapLegend.appendChild(item);
+  });
 
   territory_names.forEach((name, idx) => {
     const [x, y] = territory_positions[name] || [0, 0];
@@ -348,12 +356,7 @@ function renderMap() {
     });
     ctx.closePath();
     ctx.fillStyle = color;
-    ctx.strokeStyle = "#5a4f4b";
-    ctx.lineWidth = 1.4;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
     ctx.fill();
-    ctx.stroke();
 
     if (label) {
       const center = toCanvas([x + 0.5, y + 0.5]);
@@ -363,6 +366,32 @@ function renderMap() {
       ctx.textBaseline = "middle";
       ctx.fillText(name, center[0], center[1]);
     }
+  });
+
+  // Draw borders last so there are no gaps between fills.
+  ctx.strokeStyle = "#5a4f4b";
+  ctx.lineWidth = 1.4;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  territory_names.forEach((name) => {
+    const [x, y] = territory_positions[name] || [0, 0];
+    const edges = [
+      edgePoints([x, y], [x + 1, y]),
+      edgePoints([x + 1, y], [x + 1, y + 1]),
+      edgePoints([x + 1, y + 1], [x, y + 1]),
+      edgePoints([x, y + 1], [x, y]),
+    ];
+    ctx.beginPath();
+    const start = toCanvas(edges[0][0]);
+    ctx.moveTo(start[0], start[1]);
+    edges.forEach((edge) => {
+      const c1 = toCanvas(edge[1]);
+      const c2 = toCanvas(edge[2]);
+      const end = toCanvas(edge[3]);
+      ctx.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], end[0], end[1]);
+    });
+    ctx.closePath();
+    ctx.stroke();
   });
 }
 
