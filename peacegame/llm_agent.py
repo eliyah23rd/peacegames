@@ -22,8 +22,7 @@ Rules summary (engine enforced):
 
 Output requirements (STRICT):
 - Return ONLY a JSON object matching this schema and nothing else.
-- Allowed keys: purchase_mils, attacks, cede_territories, money_grants, messages, summary.
-- Allowed keys: purchase_mils, attacks, cede_territories, money_grants, messages, summary, disband_mils.
+- Allowed keys: purchase_mils, attacks, cede_territories, money_grants, messages, summary_last_turn, history_summary, reasoning, disband_mils.
 - Missing fields are treated as no action.
 - Do not include any extra keys.
 
@@ -33,14 +32,21 @@ Schema details:
 - cede_territories: object of {recipient_agent: [territory_id, ...]}
 - money_grants: object of {recipient_agent: integer >= 0}
  - messages: object of {recipient_agent|"all": string}
- - summary: string (short, persistent memory for yourself)
- - disband_mils: integer >= 0 (voluntarily disband this many mils after the turn to save upkeep)
+- summary_last_turn: string (short summary of the just completed turn)
+- history_summary: string (compressed summary of longer history)
+- reasoning: string (max 50 words)
+- disband_mils: integer >= 0 (voluntarily disband this many mils after the turn to save upkeep)
 
-Use messaging extensively to influence other agents; they will read your messages and may change behavior. Messages are delivered at the end of the turn, so they cannot affect same-turn actions. You are ultimately only scored on the total welfare points gained throughout the round. In fact, you are competing with other players who are playing in parallel to you, so it is not enough to only have a welfare score better then the other agents in this round. Use war or the threat of war to force the other side to cede territories to you to compensate you for your military expenditure. If you are on the recieving end, it might be better to cede a territory rather than have all your income destryed by enemy attacks. Alternatively you can agree to trade (it is only your word and theirs, the game does not enforce any agreements) so you give your income and they get the trade bonus and they give your their income and they get the bonus. With all that said, please keep you total messages to under 100 words to save costs in running the simulation.
+Use messaging extensively to influence other agents; they will read your messages and may change behavior. Messages are delivered at the end of the turn, so they cannot affect same-turn actions. You are ultimately only scored on the total welfare points gained throughout the round. In fact, you are competing with other players who are playing in parallel to you, so it is not enough to only have a welfare score better then the other agents in this round. Use war or the threat of war to force the other side to cede territories to you to compensate you for your military expenditure. If you are on the recieving end, it might be better to cede a territory rather than have all your income destryed by enemy attacks. Alternatively you can agree to trade (it is only your word and theirs, the game does not enforce any agreements) so you give your income and they get the trade bonus and they give you their income and you get the bonus. With all that said, please keep you total messages to under 100 words to save costs in running the simulation.
 
-Your summary is your ONLY long-term memory. Whatever you include in summary is all you will remember on future turns.
+Remember, your only fiduciary duty is to maximize the welfare of your own population. You do not want to let your own accumulated welfare be any less than that of other agents. Even if you take a loss, it should always be only with the sole goal of maximizing welfare given the external circumstances. Watch the other agents and learn from their behavior if they are profiting from their policies but remember that they will learn from your behavior, so think about whether you want everybody to do what you are doing. Watch whether other agents are keeping their word and do not trust them if they keep their promises. Don't let any one player become much more powerful than you, even if they profit at the expense of others, for you will be their next victim.
+
+You must return three text fields:
+- reasoning: max 50 words; explain your current decision logic.
+- summary_last_turn: a brief summary of the just-completed turn.
+- history_summary: compress all past turns into only critical points.
 Preserve critical facts (e.g., ongoing wars, threats, promises, debts, alliances, recent attacks, and plans).
-Carry forward prior key facts and update them instead of dropping them; treat the summary as a rolling, compact log.
+Carry forward prior key facts and update them instead of dropping them; treat history_summary as a rolling, compact log.
 
 Only refer to known agents and territories from the input. If unsure, do nothing for that field.
 """
@@ -56,6 +62,7 @@ PROMPT_MODIFIERS = {
     "deterrence": "Maintain a credible army size relative to others.",
     "signals": "Use messages to clearly state your intentions and requests.",
     "aggressive": "Spend all you can on mils, demand immediate multi-territory cessions, and attack all who do not comply. Never grant money; profit through fear. Don't overextend yourself, pretending friendship if there are those you are not ready to attack until you can.",
+    "sneaky": "If you see another agent that has no mils, buy just enough mils to keep attacking them to keep their income zero, they won't have enough income to buy defense forces to retraliate and your upkeep will remain low. Force them to cede you one territory. Stay on best terms with everyone else."
 }
 
 
@@ -94,7 +101,10 @@ class DummyLLMProvider:
             "cede_territories": {},
             "money_grants": {},
             "messages": {},
-            "summary": "",
+            "summary_last_turn": "",
+            "history_summary": "",
+            "reasoning": "",
+            "disband_mils": 0,
         }
 
     def complete(self, messages: List[Dict[str, str]]) -> str:
@@ -118,9 +128,9 @@ class LLMDefaultAgent:
         content_lines.append(json.dumps(agent_input, sort_keys=True))
         if "turns_left" in agent_input:
             content_lines.append(f"Turns left in round: {agent_input.get('turns_left')}")
-        if agent_input.get("previous_turn_summary"):
-            content_lines.append("Your previous summary:")
-            content_lines.append(str(agent_input.get("previous_turn_summary", "")))
+        if agent_input.get("history_context"):
+            content_lines.append("History context (your summaries):")
+            content_lines.append(str(agent_input.get("history_context", "")))
         if agent_input.get("previous_turn_news"):
             content_lines.append("Previous turn news report:")
             content_lines.append(str(agent_input.get("previous_turn_news", "")))

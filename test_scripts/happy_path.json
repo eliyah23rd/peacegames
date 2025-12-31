@@ -22,8 +22,8 @@
     {
       "turn": 0,
       "actions": {
-        "Alder": "{\"purchase_mils\": 2, \"attacks\": {\"Birch\": 1}, \"cede_territories\": {\"Birch\": [\"Auron\"]}, \"money_grants\": {\"Birch\": 5}, \"messages\": {\"all\": \"hello\"}, \"summary\": \"turn0\"}",
-        "Birch": "{\"summary\": \"ok\"}"
+        "Alder": "{\"purchase_mils\": 2, \"attacks\": {\"Birch\": 1}, \"cede_territories\": {\"Birch\": [\"Auron\"]}, \"money_grants\": {\"Birch\": 5}, \"messages\": {\"all\": \"hello\"}, \"summary_last_turn\": \"turn0\", \"history_summary\": \"h0\", \"reasoning\": \"r0\"}",
+        "Birch": "{\"summary_last_turn\": \"ok\", \"history_summary\": \"h1\"}"
       },
       "expected": {
         "d_mil_purchase_intent": {"Alder": 2, "Birch": 0},
@@ -31,19 +31,20 @@
         "d_territory_cession": {"Alder": {"Birch": ["Auron"]}, "Birch": {}},
         "d_money_grants": {"Alder": {"Birch": 5}, "Birch": {}},
         "d_messages_sent": {"Alder": {"all": "hello"}, "Birch": {}},
-        "d_turn_summary": {"Alder": "turn0", "Birch": "ok"}
+        "d_summary_last_turn": {"Alder": "turn0", "Birch": "ok"},
+        "d_history_summary": {"Alder": "h0", "Birch": "h1"}
       }
     },
     {
       "turn": 1,
       "actions": {
-        "Alder": "{\"summary\": \"s1\"}",
-        "Birch": "{\"purchase_mils\": 1, \"attacks\": {}, \"summary\": \"s1b\"}"
+        "Alder": "{\"summary_last_turn\": \"s1\"}",
+        "Birch": "{\"purchase_mils\": 1, \"attacks\": {}, \"summary_last_turn\": \"s1b\"}"
       },
       "expected": {
         "d_mil_purchase_intent": {"Alder": 0, "Birch": 1},
         "d_global_attacks": {"Alder": {}, "Birch": {}},
-        "d_turn_summary": {"Alder": "s1", "Birch": "s1b"}
+        "d_summary_last_turn": {"Alder": "s1", "Birch": "s1b"}
       }
     }
   ]

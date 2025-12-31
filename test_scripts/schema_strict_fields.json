@@ -22,7 +22,7 @@
     {
       "turn": 0,
       "actions": {
-        "Ivory": "{\"purchase_mils\": 1, \"attacks\": {\"Jade\": 2, \"Ivory\": 1, \"Kestrel\": 1}, \"cede_territories\": {\"Jade\": [\"Larkspur\", 7]}, \"money_grants\": {\"Jade\": -1}, \"messages\": {\"all\": \"hi\", \"Jade\": 5}, \"summary\": \"ok\", \"extra_field\": 123}",
+        "Ivory": "{\"purchase_mils\": 1, \"attacks\": {\"Jade\": 2, \"Ivory\": 1, \"Kestrel\": 1}, \"cede_territories\": {\"Jade\": [\"Larkspur\", 7]}, \"money_grants\": {\"Jade\": -1}, \"messages\": {\"all\": \"hi\", \"Jade\": 5}, \"summary_last_turn\": \"ok\", \"extra_field\": 123}",
         "Jade": "{\"attacks\": {\"Ivory\": \"2\"}}"
       },
       "expected": {
@@ -31,7 +31,7 @@
         "d_territory_cession": {"Ivory": {}, "Jade": {}},
         "d_money_grants": {"Ivory": {}, "Jade": {}},
         "d_messages_sent": {"Ivory": {}, "Jade": {}},
-        "d_turn_summary": {"Ivory": "ok", "Jade": ""}
+        "d_summary_last_turn": {"Ivory": "ok", "Jade": ""}
       }
     }
   ]

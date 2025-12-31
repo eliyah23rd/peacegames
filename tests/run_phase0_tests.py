@@ -93,7 +93,9 @@ class Phase0ScriptTests(unittest.TestCase):
                 d_territory_cession,
                 d_money_grants,
                 d_messages_sent,
-                d_turn_summary,
+                d_summary_last_turn,
+                d_history_summary,
+                d_reasoning,
                 d_mils_disband_intent,
             ) = self.phase0_engine.run_turn(
                 script_name=name,
@@ -111,7 +113,7 @@ class Phase0ScriptTests(unittest.TestCase):
                 actual = locals()[ledger_name]
                 self.assertEqual(actual, ledger_val, f"Mismatch for {ledger_name} in {name}")
 
-            turn_summaries = d_turn_summary
+            turn_summaries = d_summary_last_turn
 
         self.phase0_engine.log_script_end(script_name=name)
 
@@ -200,7 +202,7 @@ class Phase0ScriptTests(unittest.TestCase):
             if expected_reports is not None:
                 self.assertEqual(results.get("agent_reports"), expected_reports, f"Mismatch for agent_reports in {name}")
 
-            turn_summaries = results.get("d_turn_summary", turn_summaries)
+            turn_summaries = results.get("d_summary_last_turn", turn_summaries)
 
         self.sim_engine.log_script_end(script_name=name)
 

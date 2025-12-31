@@ -48,6 +48,9 @@ class Phase0Engine:
         Dict[str, Dict[str, int]],
         Dict[str, Dict[str, str]],
         Dict[str, str],
+        Dict[str, str],
+        Dict[str, str],
+        Dict[str, int],
     ]:
         self.log(f"Turn {turn} start for {script_name}")
         inputs = assemble_agent_inputs(
@@ -67,7 +70,9 @@ class Phase0Engine:
             d_territory_cession,
             d_money_grants,
             d_messages_sent,
-            d_turn_summary,
+            d_summary_last_turn,
+            d_history_summary,
+            d_reasoning,
             d_mils_disband_intent,
         ) = translate_agent_actions_to_intentions(
             actions,
@@ -134,8 +139,8 @@ class Phase0Engine:
                     str(turn),
                     agent,
                     "phase0",
-                    "d_mils_disband_intent",
-                    json.dumps(d_mils_disband_intent.get(agent, 0), sort_keys=True),
+                    "d_summary_last_turn",
+                    json.dumps(d_summary_last_turn.get(agent, ""), sort_keys=True),
                 ]
             )
             self._rows.append(
@@ -144,19 +149,41 @@ class Phase0Engine:
                     str(turn),
                     agent,
                     "phase0",
-                    "d_turn_summary",
-                    d_turn_summary.get(agent, ""),
+                    "d_history_summary",
+                    json.dumps(d_history_summary.get(agent, ""), sort_keys=True),
+                ]
+            )
+            self._rows.append(
+                [
+                    script_name,
+                    str(turn),
+                    agent,
+                    "phase0",
+                    "d_reasoning",
+                    json.dumps(d_reasoning.get(agent, ""), sort_keys=True),
+                ]
+            )
+            self._rows.append(
+                [
+                    script_name,
+                    str(turn),
+                    agent,
+                    "phase0",
+                    "d_mils_disband_intent",
+                    json.dumps(d_mils_disband_intent.get(agent, 0), sort_keys=True),
                 ]
             )
 
-        self.log(f"Turn {turn} outputs: {d_turn_summary}")
+        self.log(f"Turn {turn} outputs: {d_summary_last_turn}")
         return (
             d_mil_purchase_intent,
             d_global_attacks,
             d_territory_cession,
             d_money_grants,
             d_messages_sent,
-            d_turn_summary,
+            d_summary_last_turn,
+            d_history_summary,
+            d_reasoning,
             d_mils_disband_intent,
         )
 

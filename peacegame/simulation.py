@@ -11,6 +11,43 @@ from .phase0 import assemble_agent_inputs, call_agents_collect_actions, translat
 from .visualizations import render_round_metrics
 
 
+def build_history_context(
+    *,
+    history_summary: str,
+    turn_summaries: List[tuple[int, str]],
+    max_chars: int,
+) -> str:
+    """Compose history summary plus recent per-turn summaries capped by max_chars."""
+    parts: List[str] = []
+    if history_summary:
+        parts.append("History summary:")
+        parts.append(history_summary)
+
+    if turn_summaries:
+        parts.append("Recent turns:")
+        for turn, summary in reversed(turn_summaries):
+            parts.append(f"turn {turn}: {summary}")
+
+    combined = "\n".join(parts)
+    if len(combined) <= max_chars:
+        return combined
+
+    # Truncate from the oldest turn summaries first
+    trimmed_parts = []
+    if history_summary:
+        trimmed_parts.append("History summary:")
+        trimmed_parts.append(history_summary)
+    if turn_summaries:
+        trimmed_parts.append("Recent turns:")
+        for turn, summary in reversed(turn_summaries):
+            candidate = "\n".join(trimmed_parts + [f"turn {turn}: {summary}"])
+            if len(candidate) > max_chars:
+                break
+            trimmed_parts.append(f"turn {turn}: {summary}")
+
+    return "\n".join(trimmed_parts)
+
+
 def _transpose_attacks(d_global_attacks: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
     d_global_attacked: Dict[str, Dict[str, int]] = {}
     for attacker, targets in d_global_attacks.items():
@@ -104,6 +141,9 @@ class SimulationEngine:
         self.last_defense_destroy_factor: int = 0
         self.per_turn_metrics: Dict[str, Dict[str, List[int]]] = {}
         self.turns_seen: List[int] = []
+        self.history_summary: Dict[str, str] = {}
+        self.summary_log: Dict[str, List[tuple[int, str]]] = {}
+        self.history_max_chars: int = 1000
 
     def close(self) -> None:
         headers = ["script", "turn", "agent", "phase", "ledger", "value"]
@@ -156,6 +196,8 @@ class SimulationEngine:
             self.agent_territories.setdefault(agent, set())
             self.agent_mils.setdefault(agent, 0)
             self.agent_welfare.setdefault(agent, 0)
+            self.history_summary.setdefault(agent, "")
+            self.summary_log.setdefault(agent, [])
 
     def setup_round(self, *, total_turns: int) -> None:
         self.total_turns = int(total_turns)
@@ -188,6 +230,7 @@ class SimulationEngine:
             news_report=self.last_news_report,
             agent_reports=self.last_agent_reports,
             turns_left=self._turns_left(turn),
+            history_contexts=self._build_history_contexts(),
         )
         actions = call_agents_collect_actions(agents=agents, agent_inputs=inputs)
         self.log(f"Raw actions: {actions}")
@@ -198,7 +241,9 @@ class SimulationEngine:
             d_territory_cession,
             d_money_grants,
             d_messages_sent,
-            d_turn_summary,
+            d_summary_last_turn,
+            d_history_summary,
+            d_reasoning,
             d_mils_disband_intent,
         ) = translate_agent_actions_to_intentions(
             actions,
@@ -352,6 +397,13 @@ class SimulationEngine:
             for giver, amt in grants.items():
                 d_grants_paid[giver] = d_grants_paid.get(giver, 0) + amt
 
+        for agent in self.agent_names:
+            if d_history_summary.get(agent):
+                self.history_summary[agent] = d_history_summary[agent]
+            summary = d_summary_last_turn.get(agent, "")
+            if summary:
+                self.summary_log.setdefault(agent, []).append((turn, summary))
+
         self.last_news_report = self._build_news_report(
             d_global_attacks=d_global_attacks,
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
@@ -394,7 +446,9 @@ class SimulationEngine:
             script_name,
             turn,
             "phase0",
-            ("d_turn_summary", d_turn_summary),
+            ("d_summary_last_turn", d_summary_last_turn),
+            ("d_history_summary", d_history_summary),
+            ("d_reasoning", d_reasoning),
             ("d_mil_purchase_intent", d_mil_purchase_intent),
             ("d_global_attacks", d_global_attacks),
             ("d_territory_cession", d_territory_cession),
@@ -476,7 +530,9 @@ class SimulationEngine:
             "d_territory_cession": d_territory_cession,
             "d_money_grants": d_money_grants,
             "d_messages_sent": d_messages_sent,
-            "d_turn_summary": d_turn_summary,
+            "d_summary_last_turn": d_summary_last_turn,
+            "d_history_summary": d_history_summary,
+            "d_reasoning": d_reasoning,
             "d_gross_income": d_gross_income,
             "d_attacking_mils": d_attacking_mils,
             "d_defense_mils": d_defense_mils,
@@ -698,6 +754,16 @@ class SimulationEngine:
             return None
         remaining = self.total_turns - (turn + 1)
         return max(remaining, 0)
+
+    def _build_history_contexts(self) -> Dict[str, str]:
+        contexts: Dict[str, str] = {}
+        for agent in self.agent_names:
+            contexts[agent] = build_history_context(
+                history_summary=self.history_summary.get(agent, ""),
+                turn_summaries=self.summary_log.get(agent, []),
+                max_chars=self.history_max_chars,
+            )
+        return contexts
 
     def _ensure_dirs(self) -> None:
         os.makedirs("logs", exist_ok=True)

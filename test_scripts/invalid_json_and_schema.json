@@ -23,7 +23,7 @@
       "turn": 0,
       "actions": {
         "Cedar": "{not json}",
-        "Dune": "{\"purchase_mils\": -5, \"attacks\": \"bad\", \"cede_territories\": {\"Dune\": [\"Frostvale\"], \"Cedar\": [\"Driftwood\"]}, \"money_grants\": \"bad\", \"messages\": {\"Ember\": \"nope\", \"all\": 5}, \"summary\": 123}"
+        "Dune": "{\"purchase_mils\": -5, \"attacks\": \"bad\", \"cede_territories\": {\"Dune\": [\"Frostvale\"], \"Cedar\": [\"Driftwood\"]}, \"money_grants\": \"bad\", \"messages\": {\"Ember\": \"nope\", \"all\": 5}, \"summary_last_turn\": 123}"
       },
       "expected": {
         "d_mil_purchase_intent": {"Cedar": 0, "Dune": 0},
@@ -31,7 +31,7 @@
         "d_territory_cession": {"Cedar": {}, "Dune": {}},
         "d_money_grants": {"Cedar": {}, "Dune": {}},
         "d_messages_sent": {"Cedar": {}, "Dune": {}},
-        "d_turn_summary": {"Cedar": "", "Dune": ""}
+        "d_summary_last_turn": {"Cedar": "", "Dune": ""}
       }
     }
   ]

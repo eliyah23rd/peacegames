@@ -22,7 +22,7 @@
     {
       "turn": 0,
       "actions": {
-        "Galen": "{\"purchase_mils\": 3, \"attacks\": {\"Harbor\": 2, \"Galen\": 1, \"Ivory\": 1}, \"cede_territories\": {\"Harbor\": [\"Ironridge\", \"KestrelBay\", 2]}, \"money_grants\": {\"Harbor\": 0, \"Galen\": 2, \"Ivory\": 3}, \"messages\": {\"all\": \"hi\", \"Harbor\": 5}, \"summary\": \"ok\"}",
+        "Galen": "{\"purchase_mils\": 3, \"attacks\": {\"Harbor\": 2, \"Galen\": 1, \"Ivory\": 1}, \"cede_territories\": {\"Harbor\": [\"Ironridge\", \"KestrelBay\", 2]}, \"money_grants\": {\"Harbor\": 0, \"Galen\": 2, \"Ivory\": 3}, \"messages\": {\"all\": \"hi\", \"Harbor\": 5}, \"summary_last_turn\": \"ok\"}",
         "Harbor": "{}"
       },
       "expected": {
@@ -31,7 +31,7 @@
         "d_territory_cession": {"Galen": {}, "Harbor": {}},
         "d_money_grants": {"Galen": {}, "Harbor": {}},
         "d_messages_sent": {"Galen": {}, "Harbor": {}},
-        "d_turn_summary": {"Galen": "ok", "Harbor": ""}
+        "d_summary_last_turn": {"Galen": "ok", "Harbor": ""}
       }
     }
   ]

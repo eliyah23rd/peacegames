@@ -40,7 +40,9 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         "cede_territories",
         "money_grants",
         "messages",
-        "summary",
+        "summary_last_turn",
+        "history_summary",
+        "reasoning",
         "disband_mils",
     }
     validated: Dict[str, Any] = {}
@@ -88,11 +90,23 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
     elif messages is not None:
         _log(log_fn, "Agent messages rejected due to schema")
 
-    summary = action.get("summary")
-    if isinstance(summary, str):
-        validated["summary"] = summary
-    elif summary is not None:
-        _log(log_fn, "Agent summary rejected due to schema")
+    summary_last_turn = action.get("summary_last_turn")
+    if isinstance(summary_last_turn, str):
+        validated["summary_last_turn"] = summary_last_turn
+    elif summary_last_turn is not None:
+        _log(log_fn, "Agent summary_last_turn rejected due to schema")
+
+    history_summary = action.get("history_summary")
+    if isinstance(history_summary, str):
+        validated["history_summary"] = history_summary
+    elif history_summary is not None:
+        _log(log_fn, "Agent history_summary rejected due to schema")
+
+    reasoning = action.get("reasoning")
+    if isinstance(reasoning, str):
+        validated["reasoning"] = reasoning
+    elif reasoning is not None:
+        _log(log_fn, "Agent reasoning rejected due to schema")
 
     disband_mils = action.get("disband_mils")
     if isinstance(disband_mils, int) and disband_mils >= 0:
@@ -131,6 +145,7 @@ def assemble_agent_inputs(
     news_report: str | None = None,
     agent_reports: Mapping[str, str] | None = None,
     turns_left: int | None = None,
+    history_contexts: Mapping[str, str] | None = None,
 ) -> Dict[str, dict]:
     """Build the per-agent input objects for Phase 0."""
     inputs: Dict[str, dict] = {}
@@ -147,7 +162,8 @@ def assemble_agent_inputs(
             "constants": dict(constants),
         }
         if turn >= 1:
-            agent_input["previous_turn_summary"] = turn_summaries.get(agent, "")
+            if history_contexts and agent in history_contexts:
+                agent_input["history_context"] = history_contexts[agent]
             if news_report:
                 agent_input["previous_turn_news"] = news_report
             if agent_reports and agent in agent_reports:
@@ -181,6 +197,8 @@ def translate_agent_actions_to_intentions(
     Dict[str, Dict[str, int]],
     Dict[str, Dict[str, str]],
     Dict[str, str],
+    Dict[str, str],
+    Dict[str, str],
     Dict[str, int],
 ]:
     """Translate raw agent JSON actions into intention ledgers."""
@@ -190,7 +208,9 @@ def translate_agent_actions_to_intentions(
     d_territory_cession: Dict[str, Dict[str, List[str]]] = {}
     d_money_grants: Dict[str, Dict[str, int]] = {}
     d_messages_sent: Dict[str, Dict[str, str]] = {}
-    d_turn_summary: Dict[str, str] = {}
+    d_summary_last_turn: Dict[str, str] = {}
+    d_history_summary: Dict[str, str] = {}
+    d_reasoning: Dict[str, str] = {}
     d_mils_disband_intent: Dict[str, int] = {}
 
     for agent, raw_action in agent_actions.items():
@@ -202,7 +222,9 @@ def translate_agent_actions_to_intentions(
         cede_territories: Dict[str, List[str]] = {}
         money_grants: Dict[str, int] = {}
         messages: Dict[str, str] = {}
-        summary = ""
+        summary_last_turn = ""
+        history_summary = ""
+        reasoning = ""
         disband_mils = 0
 
         try:
@@ -272,10 +294,18 @@ def translate_agent_actions_to_intentions(
                     continue
                 messages[recipient] = msg_val
 
-            s = action.get("summary", "")
-            summary = s if isinstance(s, str) else ""
+            s = action.get("summary_last_turn", "")
+            summary_last_turn = s if isinstance(s, str) else ""
             if max_summary_len >= 0:
-                summary = summary[:max_summary_len]
+                summary_last_turn = summary_last_turn[:max_summary_len]
+
+            hs = action.get("history_summary", "")
+            history_summary = hs if isinstance(hs, str) else ""
+            if max_summary_len >= 0:
+                history_summary = history_summary[:max_summary_len]
+
+            r = action.get("reasoning", "")
+            reasoning = r if isinstance(r, str) else ""
 
             disband_mils = _clamp_nonneg(_safe_int(action.get("disband_mils", 0), 0))
 
@@ -285,14 +315,18 @@ def translate_agent_actions_to_intentions(
             cede_territories = {}
             money_grants = {}
             messages = {}
-            summary = ""
+            summary_last_turn = ""
+            history_summary = ""
+            reasoning = ""
 
         d_mil_purchase_intent[agent] = purchase_mils
         d_global_attacks[agent] = attacks
         d_territory_cession[agent] = cede_territories
         d_money_grants[agent] = money_grants
         d_messages_sent[agent] = messages
-        d_turn_summary[agent] = summary
+        d_summary_last_turn[agent] = summary_last_turn
+        d_history_summary[agent] = history_summary
+        d_reasoning[agent] = reasoning
         d_mils_disband_intent[agent] = disband_mils
 
     return (
@@ -301,7 +335,9 @@ def translate_agent_actions_to_intentions(
         d_territory_cession,
         d_money_grants,
         d_messages_sent,
-        d_turn_summary,
+        d_summary_last_turn,
+        d_history_summary,
+        d_reasoning,
         d_mils_disband_intent,
     )
 
@@ -322,6 +358,8 @@ def run_phase0(
     Dict[str, Dict[str, List[str]]],
     Dict[str, Dict[str, int]],
     Dict[str, Dict[str, str]],
+    Dict[str, str],
+    Dict[str, str],
     Dict[str, str],
     Dict[str, int],
 ]:

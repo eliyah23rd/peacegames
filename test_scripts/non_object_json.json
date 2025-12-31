@@ -31,7 +31,7 @@
         "d_territory_cession": {"Ember": {}, "Fjord": {}},
         "d_money_grants": {"Ember": {}, "Fjord": {}},
         "d_messages_sent": {"Ember": {}, "Fjord": {}},
-        "d_turn_summary": {"Ember": "", "Fjord": ""}
+        "d_summary_last_turn": {"Ember": "", "Fjord": ""}
       }
     }
   ]
