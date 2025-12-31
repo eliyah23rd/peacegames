@@ -284,6 +284,8 @@ function renderMap() {
     return k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
   };
 
+  const sameCoord = (a, b) => a[0] === b[0] && a[1] === b[1];
+
   const edgePoints = (start, end) => {
     const key = edgeKey(start, end);
     if (!edgeCache.has(key)) {
@@ -305,13 +307,17 @@ function renderMap() {
         c1 = [s[0] + (e[0] - s[0]) * 0.33, s[1] + j1];
         c2 = [s[0] + (e[0] - s[0]) * 0.66, s[1] + j2];
       }
-      edgeCache.set(key, [s, c1, c2, e]);
+      edgeCache.set(key, {
+        start: key.split("|")[0].split(",").map(Number),
+        end: key.split("|")[1].split(",").map(Number),
+        points: [s, c1, c2, e],
+      });
     }
-    const pts = edgeCache.get(key);
-    if (start[0] === pts[0][0] && start[1] === pts[0][1]) {
-      return pts;
+    const cached = edgeCache.get(key);
+    if (sameCoord(start, cached.start)) {
+      return cached.points;
     }
-    return [pts[3], pts[2], pts[1], pts[0]];
+    return [cached.points[3], cached.points[2], cached.points[1], cached.points[0]];
   };
 
   const toCanvas = (pt) => [
@@ -344,6 +350,8 @@ function renderMap() {
     ctx.fillStyle = color;
     ctx.strokeStyle = "#5a4f4b";
     ctx.lineWidth = 1.4;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
     ctx.fill();
     ctx.stroke();
 
