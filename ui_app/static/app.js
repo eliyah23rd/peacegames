@@ -171,42 +171,50 @@ function renderTurnTable() {
     return max;
   });
 
-  const table = document.createElement("table");
-  const thead = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  const agentHead = document.createElement("th");
-  agentHead.textContent = "Agent";
-  headRow.appendChild(agentHead);
-  ledger_vars.forEach((name) => {
-    const th = document.createElement("th");
-    th.textContent = name.replace(/_/g, " ");
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
+  const container = document.createElement("div");
+  container.className = "metric-grid";
 
-  const tbody = document.createElement("tbody");
-  agents.forEach((agent, agentIdx) => {
-    const row = document.createElement("tr");
-    const nameCell = document.createElement("td");
-    nameCell.textContent = agent;
-    row.appendChild(nameCell);
-    ledger_vars.forEach((_, varIdx) => {
-      const val = data[agentIdx][turnIdx][varIdx];
-      const cell = document.createElement("td");
-      cell.className = "value";
-      cell.textContent = val;
-      const max = maxByVar[varIdx];
-      const pct = max > 0 ? Math.round((val / max) * 100) : 0;
-      cell.style.background = `linear-gradient(90deg, rgba(42,157,143,0.2) ${pct}%, transparent ${pct}%)`;
-      row.appendChild(cell);
+  ledger_vars.forEach((metric, metricIdx) => {
+    const card = document.createElement("div");
+    card.className = "metric-card";
+    const title = document.createElement("h3");
+    title.textContent = metric.replace(/_/g, " ");
+    card.appendChild(title);
+
+    const maxVal = maxByVar[metricIdx];
+    agents.forEach((agent, agentIdx) => {
+      const row = document.createElement("div");
+      row.className = "bar-row";
+
+      const label = document.createElement("div");
+      label.className = "bar-label";
+      label.textContent = agent;
+
+      const track = document.createElement("div");
+      track.className = "bar-track";
+      const fill = document.createElement("div");
+      fill.className = "bar-fill";
+      const val = data[agentIdx][turnIdx][metricIdx];
+      const pct = maxVal > 0 ? Math.round((val / maxVal) * 100) : 0;
+      fill.style.width = `${pct}%`;
+      fill.style.background = palette[agentIdx % palette.length];
+      track.appendChild(fill);
+
+      const value = document.createElement("div");
+      value.className = "bar-value";
+      value.textContent = val;
+
+      row.appendChild(label);
+      row.appendChild(track);
+      row.appendChild(value);
+      card.appendChild(row);
     });
-    tbody.appendChild(row);
+
+    container.appendChild(card);
   });
-  table.appendChild(tbody);
 
   turnTableWrapper.innerHTML = "";
-  turnTableWrapper.appendChild(table);
+  turnTableWrapper.appendChild(container);
 }
 
 dataFileSelect.addEventListener("change", async (e) => {
