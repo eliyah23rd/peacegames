@@ -267,27 +267,40 @@ def _render_layout_png(
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_aspect("equal")
 
-    def jittered_tile(name: str, x: float, y: float) -> List[Coord]:
-        rng = random.Random(f"{name}:{x}:{y}")
-        jitter = 0.12
-        pts: List[Coord] = []
-        # Bottom edge
-        pts.append((x + rng.uniform(-jitter, jitter), y + rng.uniform(-jitter, jitter)))
-        pts.append((x + 0.5 + rng.uniform(-jitter, jitter), y + rng.uniform(-jitter, jitter)))
-        pts.append((x + 1 + rng.uniform(-jitter, jitter), y + rng.uniform(-jitter, jitter)))
-        # Right edge
-        pts.append((x + 1 + rng.uniform(-jitter, jitter), y + 0.5 + rng.uniform(-jitter, jitter)))
-        pts.append((x + 1 + rng.uniform(-jitter, jitter), y + 1 + rng.uniform(-jitter, jitter)))
-        # Top edge
-        pts.append((x + 0.5 + rng.uniform(-jitter, jitter), y + 1 + rng.uniform(-jitter, jitter)))
-        pts.append((x + rng.uniform(-jitter, jitter), y + 1 + rng.uniform(-jitter, jitter)))
-        # Left edge
-        pts.append((x + rng.uniform(-jitter, jitter), y + 0.5 + rng.uniform(-jitter, jitter)))
-        return pts
+    jitter = 0.1
+    edge_cache: Dict[Tuple[Coord, Coord], List[Coord]] = {}
+
+    def _edge_key(a: Coord, b: Coord) -> Tuple[Coord, Coord]:
+        return (a, b) if a <= b else (b, a)
+
+    def _edge_points(start: Coord, end: Coord) -> List[Coord]:
+        key = _edge_key(start, end)
+        if key not in edge_cache:
+            rng = random.Random(f"{key[0]}:{key[1]}")
+            x1, y1 = key[0]
+            x2, y2 = key[1]
+            if x1 == x2:
+                # Vertical edge: jitter x
+                mid1 = (x1 + rng.uniform(-jitter, jitter), y1 + (y2 - y1) * 0.33)
+                mid2 = (x1 + rng.uniform(-jitter, jitter), y1 + (y2 - y1) * 0.66)
+            else:
+                # Horizontal edge: jitter y
+                mid1 = (x1 + (x2 - x1) * 0.33, y1 + rng.uniform(-jitter, jitter))
+                mid2 = (x1 + (x2 - x1) * 0.66, y1 + rng.uniform(-jitter, jitter))
+            edge_cache[key] = [key[0], mid1, mid2, key[1]]
+        pts = edge_cache[key]
+        if start == key[0] and end == key[1]:
+            return pts
+        return list(reversed(pts))
 
     for name, (x, y) in positions.items():
+        bottom = _edge_points((x, y), (x + 1, y))
+        right = _edge_points((x + 1, y), (x + 1, y + 1))
+        top = _edge_points((x + 1, y + 1), (x, y + 1))
+        left = _edge_points((x, y + 1), (x, y))
+        outline = bottom[:-1] + right[:-1] + top[:-1] + left[:-1]
         poly = Polygon(
-            jittered_tile(name, x, y),
+            outline,
             closed=True,
             facecolor="#f2e9e4",
             edgecolor="#5a4f4b",
