@@ -104,7 +104,7 @@ def main() -> int:
             agents=agents,
             constants=constants,
             turn_summaries=turn_summaries,
-            max_summary_len=256,
+            max_summary_len=512,
         )
         turn_summaries = results.get("d_turn_summary", turn_summaries)
 
