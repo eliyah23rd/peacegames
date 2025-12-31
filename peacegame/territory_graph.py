@@ -267,7 +267,7 @@ def _render_layout_png(
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_aspect("equal")
 
-    jitter = 0.1
+    jitter = 0.22
     edge_cache: Dict[Tuple[Coord, Coord], List[Coord]] = {}
     vertex_cache: Dict[Coord, Coord] = {}
 
