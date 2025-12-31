@@ -254,7 +254,8 @@ def _render_layout_png(
 
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl")
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Polygon
+    from matplotlib.path import Path
+    from matplotlib.patches import PathPatch
 
     if not positions:
         return
@@ -289,12 +290,12 @@ def _render_layout_png(
             rng = random.Random(f"{key[0]}:{key[1]}")
             x1, y1 = _vertex(key[0])
             x2, y2 = _vertex(key[1])
-            if x1 == x2:
-                # Vertical edge: jitter x
+            if abs(x1 - x2) < 1e-6:
+                # Vertical edge: curve outward in x
                 mid1 = (x1 + rng.uniform(-jitter, jitter), y1 + (y2 - y1) * 0.33)
                 mid2 = (x1 + rng.uniform(-jitter, jitter), y1 + (y2 - y1) * 0.66)
             else:
-                # Horizontal edge: jitter y
+                # Horizontal edge: curve outward in y
                 mid1 = (x1 + (x2 - x1) * 0.33, y1 + rng.uniform(-jitter, jitter))
                 mid2 = (x1 + (x2 - x1) * 0.66, y1 + rng.uniform(-jitter, jitter))
             edge_cache[key] = [(x1, y1), mid1, mid2, (x2, y2)]
@@ -304,19 +305,32 @@ def _render_layout_png(
         return list(reversed(pts))
 
     for name, (x, y) in positions.items():
-        bottom = _edge_points((x, y), (x + 1, y))
-        right = _edge_points((x + 1, y), (x + 1, y + 1))
-        top = _edge_points((x + 1, y + 1), (x, y + 1))
-        left = _edge_points((x, y + 1), (x, y))
-        outline = bottom[:-1] + right[:-1] + top[:-1] + left[:-1]
-        poly = Polygon(
-            outline,
-            closed=True,
+        edges = [
+            _edge_points((x, y), (x + 1, y)),
+            _edge_points((x + 1, y), (x + 1, y + 1)),
+            _edge_points((x + 1, y + 1), (x, y + 1)),
+            _edge_points((x, y + 1), (x, y)),
+        ]
+
+        vertices: List[Coord] = []
+        codes: List[int] = []
+        start = edges[0][0]
+        vertices.append(start)
+        codes.append(Path.MOVETO)
+        for edge in edges:
+            # edge: start, ctrl1, ctrl2, end
+            vertices.extend(edge[1:])
+            codes.extend([Path.CURVE4, Path.CURVE4, Path.CURVE4])
+        vertices.append(start)
+        codes.append(Path.CLOSEPOLY)
+        path = Path(vertices, codes)
+        patch = PathPatch(
+            path,
             facecolor="#f2e9e4",
             edgecolor="#5a4f4b",
             linewidth=1.2,
         )
-        ax.add_patch(poly)
+        ax.add_patch(patch)
         ax.text(
             x + 0.5,
             y + 0.5,
