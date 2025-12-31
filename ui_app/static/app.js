@@ -24,13 +24,20 @@ const chartCanvas = document.getElementById("chartCanvas");
 const chartTitle = document.getElementById("chartTitle");
 const legend = document.getElementById("legend");
 const turnViewBtn = document.getElementById("turnViewBtn");
+const mapViewBtn = document.getElementById("mapViewBtn");
 const timelineView = document.getElementById("timelineView");
 const turnView = document.getElementById("turnView");
+const mapView = document.getElementById("mapView");
 const turnTableWrapper = document.getElementById("turnTableWrapper");
 const turnLabel = document.getElementById("turnLabel");
 const prevTurnBtn = document.getElementById("prevTurnBtn");
 const nextTurnBtn = document.getElementById("nextTurnBtn");
 const backBtn = document.getElementById("backBtn");
+const mapCanvas = document.getElementById("mapCanvas");
+const mapTurnLabel = document.getElementById("mapTurnLabel");
+const mapPrevTurnBtn = document.getElementById("mapPrevTurnBtn");
+const mapNextTurnBtn = document.getElementById("mapNextTurnBtn");
+const mapBackBtn = document.getElementById("mapBackBtn");
 
 async function loadFiles() {
   const res = await fetch("/api/files");
@@ -217,6 +224,59 @@ function renderTurnTable() {
   turnTableWrapper.appendChild(container);
 }
 
+function renderMap() {
+  if (!state.data) return;
+  const { territory_names, territory_positions, territory_owners, turns } = state.data;
+  if (!territory_names || !territory_positions || !territory_owners) return;
+
+  const turnIdx = state.currentTurnIndex;
+  mapTurnLabel.textContent = `Turn ${turns[turnIdx]}`;
+  const ctx = mapCanvas.getContext("2d");
+  ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+  const coords = territory_names.map((name) => territory_positions[name] || [0, 0]);
+  const xs = coords.map((c) => c[0]);
+  const ys = coords.map((c) => c[1]);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  const padding = 40;
+  const gridWidth = maxX - minX + 1;
+  const gridHeight = maxY - minY + 1;
+  const cellSize = Math.min(
+    (mapCanvas.width - padding * 2) / Math.max(gridWidth, 1),
+    (mapCanvas.height - padding * 2) / Math.max(gridHeight, 1),
+  );
+  const offsetX = padding;
+  const offsetY = padding;
+
+  const ownerRow = territory_owners[turnIdx] || [];
+  const label = territory_names.length <= 40;
+
+  territory_names.forEach((name, idx) => {
+    const [x, y] = territory_positions[name] || [0, 0];
+    const owner = ownerRow[idx];
+    const color = owner ? palette[state.data.agents.indexOf(owner) % palette.length] : "#e5e1dc";
+    const drawX = offsetX + (x - minX) * cellSize;
+    const drawY = offsetY + (y - minY) * cellSize;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "#5a4f4b";
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(drawX, drawY, cellSize, cellSize);
+    ctx.strokeRect(drawX, drawY, cellSize, cellSize);
+
+    if (label) {
+      ctx.fillStyle = "#2c2b2a";
+      ctx.font = "10px Georgia";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(name, drawX + cellSize / 2, drawY + cellSize / 2);
+    }
+  });
+}
+
 dataFileSelect.addEventListener("change", async (e) => {
   await loadData(e.target.value);
 });
@@ -229,11 +289,13 @@ metricSelect.addEventListener("change", (e) => {
 turnViewBtn.addEventListener("click", () => {
   timelineView.classList.add("hidden");
   turnView.classList.remove("hidden");
+  mapView.classList.add("hidden");
   renderTurnTable();
 });
 
 backBtn.addEventListener("click", () => {
   turnView.classList.add("hidden");
+  mapView.classList.add("hidden");
   timelineView.classList.remove("hidden");
 });
 
@@ -247,6 +309,30 @@ nextTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
   state.currentTurnIndex = Math.min(state.data.turns.length - 1, state.currentTurnIndex + 1);
   renderTurnTable();
+});
+
+mapViewBtn.addEventListener("click", () => {
+  timelineView.classList.add("hidden");
+  turnView.classList.add("hidden");
+  mapView.classList.remove("hidden");
+  renderMap();
+});
+
+mapBackBtn.addEventListener("click", () => {
+  mapView.classList.add("hidden");
+  timelineView.classList.remove("hidden");
+});
+
+mapPrevTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.max(0, state.currentTurnIndex - 1);
+  renderMap();
+});
+
+mapNextTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.min(state.data.turns.length - 1, state.currentTurnIndex + 1);
+  renderMap();
 });
 
 loadFiles().catch((err) => {

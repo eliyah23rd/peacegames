@@ -151,6 +151,8 @@ class SimulationEngine:
         self.metric_keys: List[str] = []
         self.territory_graph: Dict[str, Set[str]] = {}
         self.territory_positions: Dict[str, tuple[int, int]] = {}
+        self.territory_names: List[str] = []
+        self.per_turn_territory_owners: List[List[str | None]] = []
 
     def close(self) -> None:
         self._log_fp.close()
@@ -214,6 +216,7 @@ class SimulationEngine:
             territory_names,
             seed=territory_seed,
         )
+        self.territory_names = sorted(self.territory_graph.keys())
         if all(len(terrs) == 0 for terrs in self.agent_territories.values()):
             assigned = assign_territories_round_robin(
                 self.agent_names,
@@ -227,6 +230,7 @@ class SimulationEngine:
         self.total_turns = int(total_turns)
         self.per_turn_metrics = {}
         self.turns_seen = []
+        self.per_turn_territory_owners = []
 
     def run_turn(
         self,
@@ -824,6 +828,13 @@ class SimulationEngine:
                 int(grants_received * trade_factor)
             )
 
+        owner_by_territory: Dict[str, str] = {}
+        for agent, terrs in agent_territories.items():
+            for terr in terrs:
+                owner_by_territory[terr] = agent
+        owners = [owner_by_territory.get(name) for name in self.territory_names]
+        self.per_turn_territory_owners.append(owners)
+
     def _render_visualization(self) -> None:
         if not self.per_turn_metrics or not self.turns_seen:
             return
@@ -857,6 +868,12 @@ class SimulationEngine:
             "turns": self.turns_seen,
             "ledger_vars": ledger_vars,
             "data": data,
+            "territory_names": self.territory_names,
+            "territory_positions": {
+                name: list(self.territory_positions.get(name, (0, 0)))
+                for name in self.territory_names
+            },
+            "territory_owners": self.per_turn_territory_owners,
         }
         out_dir = Path("round_data")
         log_stem = Path(self.log_path).stem

@@ -152,6 +152,13 @@ h2 {
   flex-wrap: wrap;
 }
 
+.map-canvas {
+  width: 100%;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: #fffdf9;
+}
+
 .metric-grid {
   overflow-x: auto;
   display: grid;

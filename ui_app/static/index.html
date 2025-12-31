@@ -24,6 +24,7 @@
             <select id="metricSelect"></select>
           </label>
           <button id="turnViewBtn" class="primary">Per-turn view</button>
+          <button id="mapViewBtn" class="ghost">Map view</button>
         </div>
       </header>
 
@@ -52,6 +53,21 @@
             </div>
           </div>
           <div id="turnTableWrapper" class="metric-grid"></div>
+        </section>
+
+        <section id="mapView" class="card hidden">
+          <div class="card-header">
+            <div>
+              <h2>Territory Map</h2>
+              <p id="mapTurnLabel">Turn 0</p>
+            </div>
+            <div class="turn-controls">
+              <button id="mapPrevTurnBtn">Prev</button>
+              <button id="mapNextTurnBtn">Next</button>
+              <button id="mapBackBtn" class="ghost">Back to timeline</button>
+            </div>
+          </div>
+          <canvas id="mapCanvas" class="map-canvas" width="900" height="620"></canvas>
         </section>
       </main>
     </div>
