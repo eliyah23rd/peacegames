@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import html
 import json
 import os
 from pathlib import Path
@@ -117,16 +116,14 @@ def _clamp_attacks_to_mils(
 
 
 class SimulationEngine:
-    """Full turn engine with logging and datasheets."""
+    """Full turn engine with logging."""
 
     def __init__(self, *, run_label: str = "simulation") -> None:
         self.run_label = run_label
         self._ensure_dirs()
         run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
         self.log_path = os.path.join("logs", f"{run_label}_{run_id}.log")
-        self.sheet_path = os.path.join("datasheets", f"{run_label}_{run_id}.xls")
         self._log_fp = open(self.log_path, "w", encoding="utf-8")
-        self._rows: List[List[str]] = []
         self.agent_territories: Dict[str, Set[str]] = {}
         self.agent_mils: Dict[str, int] = {}
         self.agent_welfare: Dict[str, int] = {}
@@ -144,10 +141,9 @@ class SimulationEngine:
         self.history_summary: Dict[str, str] = {}
         self.summary_log: Dict[str, List[tuple[int, str]]] = {}
         self.history_max_chars: int = 1000
+        self.metric_keys: List[str] = []
 
     def close(self) -> None:
-        headers = ["script", "turn", "agent", "phase", "ledger", "value"]
-        self._write_xls(self.sheet_path, headers, self._rows)
         self._log_fp.close()
 
     def log(self, msg: str) -> None:
@@ -447,69 +443,6 @@ class SimulationEngine:
             self.log(f"[{agent}]")
             self.log(self.last_agent_reports[agent])
 
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "phase0",
-            ("d_summary_last_turn", d_summary_last_turn),
-            ("d_history_summary", d_history_summary),
-            ("d_reasoning", d_reasoning),
-            ("d_mil_purchase_intent", d_mil_purchase_intent),
-            ("d_global_attacks", d_global_attacks),
-            ("d_territory_cession", d_territory_cession),
-            ("d_money_grants", d_money_grants),
-            ("d_messages_sent", d_messages_sent),
-            ("d_mils_disband_intent", d_mils_disband_intent),
-            ("d_keeps_word_report", d_keeps_word_report),
-            ("d_aggressor_report", d_aggressor_report),
-        )
-        self._record_phase_rows(script_name, turn, "phase1", ("d_gross_income", d_gross_income))
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "phase2",
-            ("d_attacking_mils", d_attacking_mils),
-            ("d_defense_mils", d_defense_mils),
-        )
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "phase3",
-            ("d_total_damage_received", d_total_damage_received),
-        )
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "phase4",
-            ("d_upkeep_cost", d_upkeep_cost),
-            ("d_mils_disbanded_upkeep", d_mils_disbanded_upkeep),
-        )
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "phase5",
-            ("d_mil_purchased", d_mil_purchased),
-        )
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "phase6",
-            ("d_mils_lost_by_attacker", d_mils_lost_by_attacker),
-        )
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "phase7",
-            ("d_total_welfare_this_turn", d_total_welfare_this_turn),
-        )
-        self._record_phase_rows(
-            script_name,
-            turn,
-            "state",
-            ("agent_mils", agent_mils),
-            ("agent_welfare", agent_welfare),
-        )
-
         self.log(f"Turn {turn} welfare: {d_total_welfare_this_turn}")
         self.log(f"Turn {turn} end mils: {agent_mils}")
         self.log(f"Turn {turn} end territories: {agent_territories}")
@@ -527,9 +460,11 @@ class SimulationEngine:
             d_grants_paid=d_grants_paid,
             d_grants_received=d_grants_received,
             trade_factor=float(constants["c_trade_factor"]),
+            agent_territories=agent_territories,
         )
         if self.total_turns is not None and turn == self.total_turns - 1:
             self._render_visualization()
+            self._write_round_data()
 
         return {
             "d_mil_purchase_intent": d_mil_purchase_intent,
@@ -559,28 +494,6 @@ class SimulationEngine:
             "news_report": self.last_news_report,
             "agent_reports": dict(self.last_agent_reports),
         }
-
-    def _record_phase_rows(
-        self,
-        script: str,
-        turn: int,
-        phase: str,
-        *ledgers: tuple[str, Dict[str, Any]],
-    ) -> None:
-        for ledger_name, ledger in ledgers:
-            if not ledger:
-                continue
-            for agent in sorted(ledger.keys()):
-                self._rows.append(
-                    [
-                        script,
-                        str(turn),
-                        agent,
-                        phase,
-                        ledger_name,
-                        json.dumps(ledger.get(agent), sort_keys=True),
-                    ]
-                )
 
     def _build_news_report(
         self,
@@ -785,32 +698,6 @@ class SimulationEngine:
 
     def _ensure_dirs(self) -> None:
         os.makedirs("logs", exist_ok=True)
-        os.makedirs("datasheets", exist_ok=True)
-
-    def _write_xls(self, path: str, headers: list[str], rows: list[list[str]]) -> None:
-        lines = [
-            "<html><head><meta charset=\"utf-8\"></head><body>",
-            "<table border=\"1\">",
-            "<tr>" + "".join(f"<th>{html.escape(h)}</th>" for h in headers) + "</tr>",
-        ]
-        for row in rows:
-            ledger = row[4] if len(row) > 4 else ""
-            value_attr = ""
-            if ledger == "agent_welfare":
-                value_attr = " bgcolor=\"#e6ffe6\""
-            elif ledger == "agent_mils":
-                value_attr = " bgcolor=\"#e6f0ff\""
-            lines.append(
-                "<tr>"
-                + "".join(
-                    f"<td{value_attr if idx == 5 else ''}>{html.escape(str(cell))}</td>"
-                    for idx, cell in enumerate(row)
-                )
-                + "</tr>"
-            )
-        lines.append("</table></body></html>")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
 
     def _record_metrics(
         self,
@@ -827,6 +714,7 @@ class SimulationEngine:
         d_grants_received: Dict[str, Dict[str, int]],
         trade_factor: float,
         d_mils_disbanded_voluntary: Dict[str, int],
+        agent_territories: Dict[str, Set[str]],
     ) -> None:
         if not self.per_turn_metrics:
             keys = [
@@ -835,11 +723,13 @@ class SimulationEngine:
                 "attacks",
                 "attacks_received",
                 "army_size",
+                "territories",
                 "mils_destroyed",
                 "mils_disbanded",
                 "trade_sent",
                 "trade_welfare_received",
             ]
+            self.metric_keys = list(keys)
             self.per_turn_metrics = {k: {a: [] for a in self.agent_names} for k in keys}
 
         self.turns_seen.append(turn)
@@ -859,6 +749,9 @@ class SimulationEngine:
             )
             self.per_turn_metrics["attacks_received"][agent].append(attacks_received)
             self.per_turn_metrics["army_size"][agent].append(agent_mils.get(agent, 0))
+            self.per_turn_metrics["territories"][agent].append(
+                len(agent_territories.get(agent, set()))
+            )
             self.per_turn_metrics["mils_destroyed"][agent].append(
                 d_mils_lost_by_attacker.get(agent, 0)
             )
@@ -885,3 +778,31 @@ class SimulationEngine:
             agents=self.agent_names,
             series=self.per_turn_metrics,
         )
+
+    def _write_round_data(self) -> None:
+        if not self.per_turn_metrics or not self.turns_seen:
+            return
+        ledger_vars = self.metric_keys or list(self.per_turn_metrics.keys())
+        data: List[List[List[int]]] = []
+        for agent in self.agent_names:
+            agent_rows: List[List[int]] = []
+            for idx, _turn in enumerate(self.turns_seen):
+                row = []
+                for key in ledger_vars:
+                    values = self.per_turn_metrics.get(key, {}).get(agent, [])
+                    row.append(values[idx] if idx < len(values) else 0)
+                agent_rows.append(row)
+            data.append(agent_rows)
+
+        payload = {
+            "agents": self.agent_names,
+            "turns": self.turns_seen,
+            "ledger_vars": ledger_vars,
+            "data": data,
+        }
+        out_dir = Path("round_data")
+        log_stem = Path(self.log_path).stem
+        out_path = out_dir / f"{log_stem}.json"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)

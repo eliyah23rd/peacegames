@@ -24,6 +24,7 @@ def render_round_metrics(
         ("attacks", "Attacks (Mils Committed)"),
         ("attacks_received", "Attacks Received (Mils)"),
         ("army_size", "Army Size (End of Turn)"),
+        ("territories", "Territories Owned"),
         ("mils_destroyed", "Mils Destroyed (Attacker Losses)"),
         ("mils_disbanded", "Mils Disbanded (Upkeep)"),
         ("trade_sent", "Trade Sent (Grants Paid)"),

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import html
-import json
 import os
 from typing import Any, Dict, List, Mapping, Set
 
@@ -10,20 +8,16 @@ from .phase0 import assemble_agent_inputs, call_agents_collect_actions, translat
 
 
 class Phase0Engine:
-    """Phase 0 engine wrapper that records logs and datasheets."""
+    """Phase 0 engine wrapper that records logs."""
 
     def __init__(self, *, run_label: str = "phase0") -> None:
         self.run_label = run_label
         self._ensure_dirs()
         run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
         self.log_path = os.path.join("logs", f"{run_label}_{run_id}.log")
-        self.sheet_path = os.path.join("datasheets", f"{run_label}_{run_id}.xls")
         self._log_fp = open(self.log_path, "w", encoding="utf-8")
-        self._rows: List[List[str]] = []
 
     def close(self) -> None:
-        headers = ["script", "turn", "agent", "phase", "ledger", "value"]
-        self._write_xls(self.sheet_path, headers, self._rows)
         self._log_fp.close()
 
     def log(self, msg: str) -> None:
@@ -86,118 +80,6 @@ class Phase0Engine:
             log_fn=self.log,
         )
 
-        for agent in sorted(agents.keys()):
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_mil_purchase_intent",
-                    json.dumps(d_mil_purchase_intent.get(agent, 0), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_global_attacks",
-                    json.dumps(d_global_attacks.get(agent, {}), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_territory_cession",
-                    json.dumps(d_territory_cession.get(agent, {}), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_money_grants",
-                    json.dumps(d_money_grants.get(agent, {}), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_messages_sent",
-                    json.dumps(d_messages_sent.get(agent, {}), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_summary_last_turn",
-                    json.dumps(d_summary_last_turn.get(agent, ""), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_history_summary",
-                    json.dumps(d_history_summary.get(agent, ""), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_reasoning",
-                    json.dumps(d_reasoning.get(agent, ""), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_mils_disband_intent",
-                    json.dumps(d_mils_disband_intent.get(agent, 0), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_keeps_word_report",
-                    json.dumps(d_keeps_word_report.get(agent, {}), sort_keys=True),
-                ]
-            )
-            self._rows.append(
-                [
-                    script_name,
-                    str(turn),
-                    agent,
-                    "phase0",
-                    "d_aggressor_report",
-                    json.dumps(d_aggressor_report.get(agent, {}), sort_keys=True),
-                ]
-            )
-
         return (
             d_mil_purchase_intent,
             d_global_attacks,
@@ -233,29 +115,3 @@ class Phase0Engine:
 
     def _ensure_dirs(self) -> None:
         os.makedirs("logs", exist_ok=True)
-        os.makedirs("datasheets", exist_ok=True)
-
-    def _write_xls(self, path: str, headers: list[str], rows: list[list[str]]) -> None:
-        lines = [
-            "<html><head><meta charset=\"utf-8\"></head><body>",
-            "<table border=\"1\">",
-            "<tr>" + "".join(f"<th>{html.escape(h)}</th>" for h in headers) + "</tr>",
-        ]
-        for row in rows:
-            ledger = row[4] if len(row) > 4 else ""
-            value_attr = ""
-            if ledger == "agent_welfare":
-                value_attr = " bgcolor=\"#e6ffe6\""
-            elif ledger == "agent_mils":
-                value_attr = " bgcolor=\"#e6f0ff\""
-            lines.append(
-                "<tr>"
-                + "".join(
-                    f"<td{value_attr if idx == 5 else ''}>{html.escape(str(cell))}</td>"
-                    for idx, cell in enumerate(row)
-                )
-                + "</tr>"
-            )
-        lines.append("</table></body></html>")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
