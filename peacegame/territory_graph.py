@@ -26,6 +26,121 @@ def _build_edges(positions: Dict[str, Coord]) -> Dict[str, Set[str]]:
     return graph
 
 
+def manhattan(a: Coord, b: Coord) -> int:
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def assign_territories_round_robin(
+    agent_names: List[str],
+    graph: Dict[str, Set[str]],
+    positions: Dict[str, Coord],
+    *,
+    seed: int | None = None,
+) -> Dict[str, Set[str]]:
+    """Assign territories by farthest-first seeds, then round-robin adjacency growth."""
+    rng = random.Random(seed)
+    territories = list(graph.keys())
+    if not territories or not agent_names:
+        return {agent: set() for agent in agent_names}
+
+    unassigned = set(territories)
+    assigned: Dict[str, Set[str]] = {agent: set() for agent in agent_names}
+
+    # Seed selection: farthest-first to spread agents apart.
+    seeds: List[str] = []
+    seeds.append(rng.choice(territories))
+    unassigned.remove(seeds[0])
+    for _ in range(1, min(len(agent_names), len(territories))):
+        best = None
+        best_dist = -1
+        for terr in list(unassigned):
+            pos = positions[terr]
+            min_dist = min(manhattan(pos, positions[s]) for s in seeds)
+            if min_dist > best_dist:
+                best_dist = min_dist
+                best = terr
+        if best is None:
+            break
+        seeds.append(best)
+        unassigned.remove(best)
+
+    for agent, terr in zip(agent_names, seeds):
+        assigned[agent].add(terr)
+
+    # Round-robin growth by adjacency.
+    stalled = 0
+    idx = 0
+    while unassigned and stalled < len(agent_names):
+        agent = agent_names[idx % len(agent_names)]
+        idx += 1
+
+        frontier = set()
+        for terr in assigned[agent]:
+            frontier |= graph.get(terr, set())
+        frontier &= unassigned
+
+        if not frontier:
+            stalled += 1
+            continue
+
+        stalled = 0
+        # Prefer territories that open more future options.
+        best = None
+        best_score = -1
+        for terr in frontier:
+            score = len(graph.get(terr, set()) & unassigned)
+            if score > best_score:
+                best_score = score
+                best = terr
+        if best is None:
+            best = rng.choice(list(frontier))
+        assigned[agent].add(best)
+        unassigned.remove(best)
+
+    return assigned
+
+
+def is_legal_cession(
+    territory: str,
+    recipient: str,
+    *,
+    agent_territories: Dict[str, Set[str]],
+    graph: Dict[str, Set[str]],
+) -> bool:
+    neighbors = graph.get(territory)
+    if not neighbors:
+        return False
+    recipient_terrs = agent_territories.get(recipient, set())
+    return any(n in recipient_terrs for n in neighbors)
+
+
+def compute_legal_cession_lists(
+    agent_territories: Dict[str, Set[str]],
+    graph: Dict[str, Set[str]],
+) -> tuple[Dict[str, Dict[str, List[str]]], Dict[str, Dict[str, List[str]]]]:
+    inbound: Dict[str, Dict[str, List[str]]] = {a: {} for a in agent_territories.keys()}
+    outbound: Dict[str, Dict[str, List[str]]] = {a: {} for a in agent_territories.keys()}
+
+    for giver, terrs in agent_territories.items():
+        for receiver in agent_territories.keys():
+            if receiver == giver:
+                continue
+            legal = [
+                terr
+                for terr in terrs
+                if is_legal_cession(
+                    terr,
+                    receiver,
+                    agent_territories=agent_territories,
+                    graph=graph,
+                )
+            ]
+            if legal:
+                outbound[giver][receiver] = sorted(legal)
+                inbound[receiver][giver] = sorted(legal)
+
+    return inbound, outbound
+
 def build_territory_graph(
     names: Iterable[str],
     *,
@@ -124,6 +239,10 @@ def _load_names(path: Path) -> List[str]:
             continue
         names.append(line)
     return names
+
+
+def load_territory_names(path: Path) -> List[str]:
+    return _load_names(path)
 
 
 def _render_layout_png(

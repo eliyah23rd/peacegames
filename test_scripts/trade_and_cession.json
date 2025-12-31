@@ -27,7 +27,7 @@
     {
       "turn": 0,
       "actions": {
-        "Ember": "{\"money_grants\": {\"Fjord\": 4}, \"cede_territories\": {\"Fjord\": [\"Highmoor\"]}}",
+        "Ember": "{\"money_grants\": {\"Fjord\": 4}, \"cede_territories\": {\"Fjord\": [\"Gildhaven\"]}}",
         "Fjord": "{\"money_grants\": {\"Ember\": 2}}"
       },
       "expected": {
@@ -37,7 +37,7 @@
         "state": {
           "agent_mils": {"Ember": 0, "Fjord": 0},
           "agent_welfare": {"Ember": 20, "Fjord": 16},
-          "agent_territories": {"Ember": ["Gildhaven"], "Fjord": ["Highmoor", "Ironridge"]}
+          "agent_territories": {"Ember": ["Highmoor"], "Fjord": ["Gildhaven", "Ironridge"]}
         }
       }
     }

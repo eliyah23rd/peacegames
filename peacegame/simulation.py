@@ -7,6 +7,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Set
 
 from .phase0 import assemble_agent_inputs, call_agents_collect_actions, translate_agent_actions_to_intentions
+from .territory_graph import (
+    assign_territories_round_robin,
+    build_territory_graph,
+    compute_legal_cession_lists,
+    is_legal_cession,
+    load_territory_names,
+)
 from .visualizations import render_round_metrics
 
 
@@ -142,6 +149,8 @@ class SimulationEngine:
         self.summary_log: Dict[str, List[tuple[int, str]]] = {}
         self.history_max_chars: int = 1000
         self.metric_keys: List[str] = []
+        self.territory_graph: Dict[str, Set[str]] = {}
+        self.territory_positions: Dict[str, tuple[int, int]] = {}
 
     def close(self) -> None:
         self._log_fp.close()
@@ -180,6 +189,7 @@ class SimulationEngine:
         agent_territories: Mapping[str, Set[str]],
         agent_mils: Mapping[str, int],
         agent_welfare: Mapping[str, int],
+        territory_seed: int | None = 42,
     ) -> None:
         self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
         self.agent_mils = {k: int(v) for k, v in agent_mils.items()}
@@ -194,6 +204,24 @@ class SimulationEngine:
             self.agent_welfare.setdefault(agent, 0)
             self.history_summary.setdefault(agent, "")
             self.summary_log.setdefault(agent, [])
+
+        territory_names = sorted(
+            {t for terrs in self.agent_territories.values() for t in terrs}
+        )
+        if not territory_names:
+            territory_names = load_territory_names(Path("names") / "territories.txt")
+        self.territory_graph, self.territory_positions = build_territory_graph(
+            territory_names,
+            seed=territory_seed,
+        )
+        if all(len(terrs) == 0 for terrs in self.agent_territories.values()):
+            assigned = assign_territories_round_robin(
+                self.agent_names,
+                self.territory_graph,
+                self.territory_positions,
+                seed=territory_seed,
+            )
+            self.agent_territories = {k: set(v) for k, v in assigned.items()}
 
     def setup_round(self, *, total_turns: int) -> None:
         self.total_turns = int(total_turns)
@@ -216,6 +244,10 @@ class SimulationEngine:
         agent_mils = self.agent_mils
         agent_welfare = self.agent_welfare
 
+        legal_inbound, legal_outbound = compute_legal_cession_lists(
+            agent_territories,
+            self.territory_graph,
+        )
         inputs = assemble_agent_inputs(
             turn=turn,
             agent_names=list(agents.keys()),
@@ -227,6 +259,8 @@ class SimulationEngine:
             agent_reports=self.last_agent_reports,
             turns_left=self._turns_left(turn),
             history_contexts=self._build_history_contexts(),
+            legal_inbound_cessions=legal_inbound,
+            legal_outbound_cessions=legal_outbound,
         )
         actions = call_agents_collect_actions(agents=agents, agent_inputs=inputs)
         self.log(f"Raw actions: {actions}")
@@ -247,6 +281,7 @@ class SimulationEngine:
             actions,
             known_agents=set(agents.keys()),
             agent_territories=agent_territories,
+            territory_graph=self.territory_graph,
             max_summary_len=max_summary_len,
             log_fn=self.log,
         )
@@ -386,9 +421,20 @@ class SimulationEngine:
         for giver, cessions in d_territory_cession.items():
             for receiver, terrs in cessions.items():
                 for tid in terrs:
-                    if tid in agent_territories.get(giver, set()):
-                        agent_territories[giver].remove(tid)
-                        agent_territories.setdefault(receiver, set()).add(tid)
+                    if tid not in agent_territories.get(giver, set()):
+                        continue
+                    if not is_legal_cession(
+                        tid,
+                        receiver,
+                        agent_territories=agent_territories,
+                        graph=self.territory_graph,
+                    ):
+                        self.log(
+                            f"Illegal cession rejected: {giver} -> {receiver} for {tid}"
+                        )
+                        continue
+                    agent_territories[giver].remove(tid)
+                    agent_territories.setdefault(receiver, set()).add(tid)
 
         d_grants_paid: Dict[str, int] = {}
         for receiver, grants in d_grants_received.items():
@@ -414,6 +460,10 @@ class SimulationEngine:
             attack_clamps=attack_clamps,
             d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
         )
+        legal_inbound_after, legal_outbound_after = compute_legal_cession_lists(
+            agent_territories,
+            self.territory_graph,
+        )
         self.last_agent_reports = self._build_agent_reports(
             d_gross_income=d_gross_income,
             d_total_damage_received=d_total_damage_received,
@@ -435,6 +485,8 @@ class SimulationEngine:
             d_reasoning=d_reasoning,
             d_keeps_word_report=d_keeps_word_report,
             d_aggressor_report=d_aggressor_report,
+            legal_inbound_cessions=legal_inbound_after,
+            legal_outbound_cessions=legal_outbound_after,
         )
         self.log("Previous turn news report:")
         self.log(self.last_news_report)
@@ -618,6 +670,8 @@ class SimulationEngine:
         d_reasoning: Dict[str, str],
         d_keeps_word_report: Dict[str, Dict[str, int]],
         d_aggressor_report: Dict[str, Dict[str, int]],
+        legal_inbound_cessions: Dict[str, Dict[str, List[str]]],
+        legal_outbound_cessions: Dict[str, Dict[str, List[str]]],
     ) -> Dict[str, str]:
         reports: Dict[str, str] = {}
         ranked = sorted(total_welfare.items(), key=lambda x: (-x[1], x[0]))
@@ -648,6 +702,8 @@ class SimulationEngine:
             reasoning = d_reasoning.get(agent, "")
             keeps_word = d_keeps_word_report.get(agent, {})
             aggressor = d_aggressor_report.get(agent, {})
+            legal_inbound = legal_inbound_cessions.get(agent, {})
+            legal_outbound = legal_outbound_cessions.get(agent, {})
 
             upkeep_price = self.last_upkeep_price
             purchase_price = self.last_purchase_price
@@ -660,6 +716,8 @@ class SimulationEngine:
                 f"Reasoning (last turn): {reasoning}",
                 f"Keeps word report: {keeps_word}",
                 f"Aggressor report: {aggressor}",
+                f"Legal inbound cessions: {legal_inbound}",
+                f"Legal outbound cessions: {legal_outbound}",
                 "Welfare: this_turn={w} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid({gp}) + grants_received({g})*trade_factor({tf}) = available_money({a}) + trade_bonus({tb}); total={t}, rank={r}/{n}".format(
                     w=welfare_this,
                     gross=gross,

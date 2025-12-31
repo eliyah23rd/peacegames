@@ -1,6 +1,11 @@
 import unittest
 
-from peacegame.territory_graph import average_degree, build_territory_graph
+from peacegame.territory_graph import (
+    assign_territories_round_robin,
+    average_degree,
+    build_territory_graph,
+    compute_legal_cession_lists,
+)
 
 
 def _connected(graph: dict[str, set[str]]) -> bool:
@@ -33,6 +38,21 @@ class TerritoryGraphTests(unittest.TestCase):
         avg = average_degree(graph)
         self.assertGreaterEqual(avg, 2.0)
         self.assertLessEqual(avg, 3.2)
+
+    def test_assignments_and_legal_cessions(self) -> None:
+        names = ["Auron", "Bastion", "Caldera", "Driftwood", "Everspring"]
+        agents = ["Alpha", "Beta"]
+        graph, positions = build_territory_graph(names, seed=7)
+        assigned = assign_territories_round_robin(agents, graph, positions, seed=7)
+
+        all_assigned = set().union(*assigned.values())
+        self.assertEqual(all_assigned, set(names))
+        for agent in agents:
+            self.assertGreaterEqual(len(assigned[agent]), 1)
+
+        inbound, outbound = compute_legal_cession_lists(assigned, graph)
+        self.assertEqual(set(inbound.keys()), set(agents))
+        self.assertEqual(set(outbound.keys()), set(agents))
 
 
 if __name__ == "__main__":

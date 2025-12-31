@@ -164,6 +164,8 @@ def assemble_agent_inputs(
     agent_reports: Mapping[str, str] | None = None,
     turns_left: int | None = None,
     history_contexts: Mapping[str, str] | None = None,
+    legal_inbound_cessions: Mapping[str, Mapping[str, List[str]]] | None = None,
+    legal_outbound_cessions: Mapping[str, Mapping[str, List[str]]] | None = None,
 ) -> Dict[str, dict]:
     """Build the per-agent input objects for Phase 0."""
     inputs: Dict[str, dict] = {}
@@ -188,6 +190,10 @@ def assemble_agent_inputs(
                 agent_input["previous_turn_report"] = agent_reports[agent]
         if turns_left is not None:
             agent_input["turns_left"] = turns_left
+        if legal_inbound_cessions and agent in legal_inbound_cessions:
+            agent_input["legal_inbound_cessions"] = legal_inbound_cessions[agent]
+        if legal_outbound_cessions and agent in legal_outbound_cessions:
+            agent_input["legal_outbound_cessions"] = legal_outbound_cessions[agent]
         inputs[agent] = agent_input
     return inputs
 
@@ -206,6 +212,7 @@ def translate_agent_actions_to_intentions(
     *,
     known_agents: Set[str],
     agent_territories: Mapping[str, Set[str]],
+    territory_graph: Mapping[str, Set[str]] | None = None,
     max_summary_len: int = 2048,
     log_fn=None,
 ) -> Tuple[
@@ -287,6 +294,16 @@ def translate_agent_actions_to_intentions(
                     if not isinstance(tid, str):
                         continue
                     if tid in owned:
+                        if territory_graph is not None:
+                            neighbors = territory_graph.get(tid, set())
+                            if not any(
+                                n in agent_territories.get(recipient, set()) for n in neighbors
+                            ):
+                                _log(
+                                    log_fn,
+                                    f"Agent {agent} illegal cession ignored: {tid} to {recipient}",
+                                )
+                                continue
                         terrs_out.append(tid)
 
                 if terrs_out:
@@ -404,6 +421,7 @@ def run_phase0(
     agent_mils: Mapping[str, int],
     constants: Mapping[str, Any],
     turn_summaries: Mapping[str, str],
+    territory_graph: Mapping[str, Set[str]] | None = None,
     max_summary_len: int = 2048,
     log_fn=None,
 ) -> Tuple[
@@ -434,6 +452,7 @@ def run_phase0(
         actions,
         known_agents=set(agent_names),
         agent_territories=agent_territories,
+        territory_graph=territory_graph,
         max_summary_len=max_summary_len,
         log_fn=log_fn,
     )
