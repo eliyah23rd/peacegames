@@ -1,7 +1,7 @@
 {
   "name": "four_agent_violent",
   "model": "gpt-5-mini",
-  "num_turns": 28,
+  "num_turns": 8,
   "constants": {
     "c_money_per_territory": 10,
     "c_mil_purchase_price": 4,

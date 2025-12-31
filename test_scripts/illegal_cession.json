@@ -1,0 +1,40 @@
+{
+  "name": "illegal_cession",
+  "engine": "simulation",
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 10,
+    "c_mil_upkeep_price": 1,
+    "c_defense_destroy_factor": 4,
+    "c_trade_factor": 2.0,
+    "c_damage_per_attack_mil": 1
+  },
+  "initial_state": {
+    "agent_territories": {
+      "Ember": ["Bastion", "Caldera"],
+      "Fjord": ["Auron", "Driftwood"]
+    },
+    "agent_mils": {
+      "Ember": 0,
+      "Fjord": 0
+    },
+    "agent_welfare": {
+      "Ember": 0,
+      "Fjord": 0
+    }
+  },
+  "turns": [
+    {
+      "turn": 0,
+      "actions": {
+        "Ember": "{\"cede_territories\": {\"Fjord\": [\"Caldera\"]}}",
+        "Fjord": "{}"
+      },
+      "expected": {
+        "state": {
+          "agent_territories": {"Ember": ["Bastion", "Caldera"], "Fjord": ["Auron", "Driftwood"]}
+        }
+      }
+    }
+  ]
+}
