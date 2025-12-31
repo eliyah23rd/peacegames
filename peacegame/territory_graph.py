@@ -31,6 +31,8 @@ def build_territory_graph(
     *,
     target_avg_degree: float = 2.5,
     seed: int | None = None,
+    elongation_bias: float = 2.0,
+    l_turn_fraction: float = 0.45,
 ) -> Tuple[Dict[str, Set[str]], Dict[str, Coord]]:
     """Lay out territories on a grid, biasing for multi-adjacency to reach target avg degree."""
     names_list = [name for name in names if name]
@@ -42,8 +44,11 @@ def build_territory_graph(
 
     positions: Dict[str, Coord] = {names_list[0]: (0, 0)}
     occupied = {positions[names_list[0]]}
+    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    primary_dir = rng.choice(directions)
+    secondary_dir = rng.choice([d for d in directions if d != primary_dir])
 
-    for name in names_list[1:]:
+    for idx, name in enumerate(names_list[1:], start=1):
         candidates: Dict[Coord, int] = {}
         for coord in occupied:
             for adj in _adjacent(coord):
@@ -53,8 +58,26 @@ def build_territory_graph(
 
         # Prefer placements that touch more existing squares to reduce diameter.
         weighted: List[Coord] = []
+        min_x = min(c[0] for c in occupied)
+        max_x = max(c[0] for c in occupied)
+        min_y = min(c[1] for c in occupied)
+        max_y = max(c[1] for c in occupied)
+        turn_step = int(len(names_list) * l_turn_fraction)
         for coord, neighbor_count in candidates.items():
             weight = max(1, neighbor_count * neighbor_count)
+            # Bias elongation by expanding along a preferred axis (or turning to L-shape).
+            dx = coord[0] - max_x if primary_dir == (1, 0) else coord[0] - min_x if primary_dir == (-1, 0) else 0
+            dy = coord[1] - max_y if primary_dir == (0, 1) else coord[1] - min_y if primary_dir == (0, -1) else 0
+            expands_primary = (dx > 0) or (dy > 0)
+            if expands_primary:
+                weight = int(weight * (1 + elongation_bias))
+
+            if idx >= turn_step:
+                sdx = coord[0] - max_x if secondary_dir == (1, 0) else coord[0] - min_x if secondary_dir == (-1, 0) else 0
+                sdy = coord[1] - max_y if secondary_dir == (0, 1) else coord[1] - min_y if secondary_dir == (0, -1) else 0
+                expands_secondary = (sdx > 0) or (sdy > 0)
+                if expands_secondary:
+                    weight = int(weight * (1 + elongation_bias * 0.8))
             weighted.extend([coord] * weight)
 
         if not weighted:
@@ -143,6 +166,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate territory connectivity.")
     parser.add_argument("--show", action="store_true", help="Render layout PNG")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--count", type=int, default=None, help="Number of territories to generate")
     parser.add_argument(
         "--names",
         type=str,
@@ -153,6 +177,10 @@ def main() -> None:
 
     names_path = Path(args.names)
     names = _load_names(names_path)
+    if args.count is not None:
+        if len(names) < args.count:
+            names.extend([f"Terr{i}" for i in range(len(names), args.count)])
+        names = names[: args.count]
     if not names:
         names = [f"Terr{i}" for i in range(20)]
 
