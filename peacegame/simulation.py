@@ -232,6 +232,10 @@ class SimulationEngine:
             turns_left=self._turns_left(turn),
             history_contexts=self._build_history_contexts(),
         )
+        for agent in sorted(inputs.keys()):
+            history_context = inputs[agent].get("history_context", "")
+            if history_context:
+                self.log(f"History context for {agent}: {history_context}")
         actions = call_agents_collect_actions(agents=agents, agent_inputs=inputs)
         self.log(f"Raw actions: {actions}")
 
@@ -436,6 +440,9 @@ class SimulationEngine:
             start_mils=start_mils,
             end_mils=agent_mils,
             total_welfare=agent_welfare,
+            d_reasoning=d_reasoning,
+            d_keeps_word_report=d_keeps_word_report,
+            d_aggressor_report=d_aggressor_report,
         )
         self.log("Previous turn news report:")
         self.log(self.last_news_report)
@@ -443,6 +450,11 @@ class SimulationEngine:
         for agent in sorted(self.last_agent_reports.keys()):
             self.log(f"[{agent}]")
             self.log(self.last_agent_reports[agent])
+            self.log(f"Agent {agent} summary_last_turn: {d_summary_last_turn.get(agent, '')}")
+            self.log(f"Agent {agent} history_summary: {d_history_summary.get(agent, '')}")
+            self.log(f"Agent {agent} reasoning: {d_reasoning.get(agent, '')}")
+            self.log(f"Agent {agent} keeps_word_report: {d_keeps_word_report.get(agent, {})}")
+            self.log(f"Agent {agent} aggressor_report: {d_aggressor_report.get(agent, {})}")
 
         self._record_phase_rows(
             script_name,
@@ -699,6 +711,9 @@ class SimulationEngine:
         start_mils: Dict[str, int],
         end_mils: Dict[str, int],
         total_welfare: Dict[str, int],
+        d_reasoning: Dict[str, str],
+        d_keeps_word_report: Dict[str, Dict[str, int]],
+        d_aggressor_report: Dict[str, Dict[str, int]],
     ) -> Dict[str, str]:
         reports: Dict[str, str] = {}
         ranked = sorted(total_welfare.items(), key=lambda x: (-x[1], x[0]))
@@ -726,6 +741,9 @@ class SimulationEngine:
             start = start_mils.get(agent, 0)
             damage_capped = min(damage, gross)
             damage_wasted = max(damage - gross, 0)
+            reasoning = d_reasoning.get(agent, "")
+            keeps_word = d_keeps_word_report.get(agent, {})
+            aggressor = d_aggressor_report.get(agent, {})
 
             upkeep_price = self.last_upkeep_price
             purchase_price = self.last_purchase_price
@@ -735,6 +753,9 @@ class SimulationEngine:
                 f"Grants: received={grants_received}, paid={grants_paid}, trade_bonus={trade_bonus}, trade_factor={trade_factor}",
                 f"Defense: defense_mils={defense_mils}, attacker_losses=defense_mils/{self.last_defense_destroy_factor}",
                 f"Army: start={start}, lost={lost}, disbanded={disbanded}, voluntary_disband={voluntary}, purchased={purchased}, end={end}",
+                f"Reasoning (last turn): {reasoning}",
+                f"Keeps word report: {keeps_word}",
+                f"Aggressor report: {aggressor}",
                 "Welfare: this_turn={w} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid({gp}) + grants_received({g})*trade_factor({tf}) = available_money({a}) + trade_bonus({tb}); total={t}, rank={r}/{n}".format(
                     w=welfare_this,
                     gross=gross,
