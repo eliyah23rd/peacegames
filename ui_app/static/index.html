@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Round Data Viewer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div>
+          <div class="eyebrow">Peacegame</div>
+          <h1>Round Data Viewer</h1>
+          <p>Pick a data file, chart a metric, or step turn-by-turn.</p>
+        </div>
+        <div class="controls">
+          <label>
+            Data file
+            <select id="dataFileSelect"></select>
+          </label>
+          <label>
+            Metric
+            <select id="metricSelect"></select>
+          </label>
+          <button id="turnViewBtn" class="primary">Per-turn view</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section id="timelineView" class="card">
+          <div class="card-header">
+            <div>
+              <h2 id="chartTitle">Total Welfare</h2>
+              <p id="chartSubtitle">All turns, all agents</p>
+            </div>
+            <div class="legend" id="legend"></div>
+          </div>
+          <canvas id="chartCanvas" width="900" height="420"></canvas>
+        </section>
+
+        <section id="turnView" class="card hidden">
+          <div class="card-header">
+            <div>
+              <h2>Turn Detail</h2>
+              <p id="turnLabel">Turn 0</p>
+            </div>
+            <div class="turn-controls">
+              <button id="prevTurnBtn">Prev</button>
+              <button id="nextTurnBtn">Next</button>
+              <button id="backBtn" class="ghost">Back to timeline</button>
+            </div>
+          </div>
+          <div id="turnTableWrapper" class="turn-table"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
