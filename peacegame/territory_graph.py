@@ -250,18 +250,42 @@ def _render_layout_png(
     *,
     out_path: Path,
 ) -> None:
+    if not positions:
+        return
+    territory_names = sorted(positions.keys())
+    owners = [None for _ in territory_names]
+    colors = {}
+    render_ownership_png(
+        territory_names,
+        positions,
+        owners,
+        colors,
+        out_path=out_path,
+    )
+
+
+def render_ownership_png(
+    territory_names: List[str],
+    territory_positions: Dict[str, Coord],
+    territory_owners: List[str | None],
+    owner_colors: Dict[str, str],
+    *,
+    out_path: Path | None = None,
+) -> bytes:
     import os
 
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl")
+    import io
     import matplotlib.pyplot as plt
     from matplotlib.path import Path
     from matplotlib.patches import PathPatch
 
-    if not positions:
-        return
+    if not territory_names:
+        return b""
 
-    xs = [coord[0] for coord in positions.values()]
-    ys = [coord[1] for coord in positions.values()]
+    coords = [territory_positions[name] for name in territory_names]
+    xs = [coord[0] for coord in coords]
+    ys = [coord[1] for coord in coords]
     min_x, max_x = min(xs), max(xs)
     min_y, max_y = min(ys), max(ys)
 
@@ -304,7 +328,8 @@ def _render_layout_png(
             return pts
         return list(reversed(pts))
 
-    for name, (x, y) in positions.items():
+    for idx, name in enumerate(territory_names):
+        x, y = territory_positions[name]
         edges = [
             _edge_points((x, y), (x + 1, y)),
             _edge_points((x + 1, y), (x + 1, y + 1)),
@@ -318,36 +343,43 @@ def _render_layout_png(
         vertices.append(start)
         codes.append(Path.MOVETO)
         for edge in edges:
-            # edge: start, ctrl1, ctrl2, end
             vertices.extend(edge[1:])
             codes.extend([Path.CURVE4, Path.CURVE4, Path.CURVE4])
         vertices.append(start)
         codes.append(Path.CLOSEPOLY)
         path = Path(vertices, codes)
+        owner = territory_owners[idx] if idx < len(territory_owners) else None
+        color = owner_colors.get(owner, "#e5e1dc")
         patch = PathPatch(
             path,
-            facecolor="#f2e9e4",
+            facecolor=color,
             edgecolor="#5a4f4b",
             linewidth=1.2,
         )
         ax.add_patch(patch)
-        ax.text(
-            x + 0.5,
-            y + 0.5,
-            name,
-            ha="center",
-            va="center",
-            fontsize=7,
-        )
+        if len(territory_names) <= 40:
+            ax.text(
+                x + 0.5,
+                y + 0.5,
+                name,
+                ha="center",
+                va="center",
+                fontsize=7,
+            )
 
     ax.set_xlim(min_x - 1, max_x + 2)
     ax.set_ylim(min_y - 1, max_y + 2)
     ax.axis("off")
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
-    fig.savefig(out_path, dpi=160)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=160)
     plt.close(fig)
+    data = buf.getvalue()
+    if out_path is not None:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(data)
+    return data
 
 
 def main() -> None:

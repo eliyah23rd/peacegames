@@ -8,7 +8,7 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from typing import Optional
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -59,6 +59,79 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
                 self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Invalid data file")
                 return
             self._send_json(payload)
+            return
+
+        if parsed.path == "/api/map":
+            params = parse_qs(parsed.query)
+            file_name = params.get("file", [""])[0]
+            turn_raw = params.get("turn", [""])[0]
+            data_path = self._get_data_file(unquote(file_name))
+            if data_path is None:
+                self.send_error(HTTPStatus.NOT_FOUND, "Data file not found")
+                return
+            try:
+                payload = json.loads(data_path.read_text(encoding="utf-8"))
+            except Exception:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Invalid data file")
+                return
+
+            turns = payload.get("turns", [])
+            if not turns:
+                self.send_error(HTTPStatus.BAD_REQUEST, "No turns available")
+                return
+            try:
+                turn_val = int(turn_raw)
+            except Exception:
+                self.send_error(HTTPStatus.BAD_REQUEST, "Invalid turn")
+                return
+            if turn_val in turns:
+                turn_idx = turns.index(turn_val)
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND, "Turn not found")
+                return
+
+            territory_names = payload.get("territory_names", [])
+            territory_positions = payload.get("territory_positions", {})
+            territory_owners = payload.get("territory_owners", [])
+            agents = payload.get("agents", [])
+            if not territory_names or not territory_owners:
+                self.send_error(HTTPStatus.BAD_REQUEST, "No territory data")
+                return
+
+            positions = {
+                name: tuple(territory_positions.get(name, (0, 0)))
+                for name in territory_names
+            }
+            owners = territory_owners[turn_idx]
+            palette = [
+                "#2a9d8f",
+                "#e76f51",
+                "#264653",
+                "#f4a261",
+                "#8ab17d",
+                "#c08497",
+                "#577590",
+                "#f6bd60",
+                "#4d908e",
+                "#f3722c",
+            ]
+            owner_colors = {
+                agent: palette[idx % len(palette)] for idx, agent in enumerate(agents)
+            }
+
+            from peacegame.territory_graph import render_ownership_png
+
+            img = render_ownership_png(
+                territory_names,
+                positions,
+                owners,
+                owner_colors,
+            )
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(img)))
+            self.end_headers()
+            self.wfile.write(img)
             return
 
         if parsed.path in ("", "/"):
