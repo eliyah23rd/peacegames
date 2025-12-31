@@ -245,6 +245,8 @@ class SimulationEngine:
             d_history_summary,
             d_reasoning,
             d_mils_disband_intent,
+            d_keeps_word_report,
+            d_aggressor_report,
         ) = translate_agent_actions_to_intentions(
             actions,
             known_agents=set(agents.keys()),
@@ -455,6 +457,8 @@ class SimulationEngine:
             ("d_money_grants", d_money_grants),
             ("d_messages_sent", d_messages_sent),
             ("d_mils_disband_intent", d_mils_disband_intent),
+            ("d_keeps_word_report", d_keeps_word_report),
+            ("d_aggressor_report", d_aggressor_report),
         )
         self._record_phase_rows(script_name, turn, "phase1", ("d_gross_income", d_gross_income))
         self._record_phase_rows(
@@ -533,6 +537,8 @@ class SimulationEngine:
             "d_summary_last_turn": d_summary_last_turn,
             "d_history_summary": d_history_summary,
             "d_reasoning": d_reasoning,
+            "d_keeps_word_report": d_keeps_word_report,
+            "d_aggressor_report": d_aggressor_report,
             "d_gross_income": d_gross_income,
             "d_attacking_mils": d_attacking_mils,
             "d_defense_mils": d_defense_mils,

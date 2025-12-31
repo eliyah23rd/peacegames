@@ -44,6 +44,8 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         "history_summary",
         "reasoning",
         "disband_mils",
+        "keeps_word_report",
+        "aggressor_report",
     }
     validated: Dict[str, Any] = {}
 
@@ -113,6 +115,22 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         validated["disband_mils"] = disband_mils
     elif disband_mils is not None:
         _log(log_fn, "Agent disband_mils rejected due to schema")
+
+    keeps_word_report = action.get("keeps_word_report")
+    if isinstance(keeps_word_report, dict) and all(
+        isinstance(v, int) and 1 <= v <= 10 for v in keeps_word_report.values()
+    ):
+        validated["keeps_word_report"] = keeps_word_report
+    elif keeps_word_report is not None:
+        _log(log_fn, "Agent keeps_word_report rejected due to schema")
+
+    aggressor_report = action.get("aggressor_report")
+    if isinstance(aggressor_report, dict) and all(
+        isinstance(v, int) and 1 <= v <= 10 for v in aggressor_report.values()
+    ):
+        validated["aggressor_report"] = aggressor_report
+    elif aggressor_report is not None:
+        _log(log_fn, "Agent aggressor_report rejected due to schema")
 
     return validated
 
@@ -200,6 +218,8 @@ def translate_agent_actions_to_intentions(
     Dict[str, str],
     Dict[str, str],
     Dict[str, int],
+    Dict[str, Dict[str, int]],
+    Dict[str, Dict[str, int]],
 ]:
     """Translate raw agent JSON actions into intention ledgers."""
 
@@ -212,6 +232,8 @@ def translate_agent_actions_to_intentions(
     d_history_summary: Dict[str, str] = {}
     d_reasoning: Dict[str, str] = {}
     d_mils_disband_intent: Dict[str, int] = {}
+    d_keeps_word_report: Dict[str, Dict[str, int]] = {}
+    d_aggressor_report: Dict[str, Dict[str, int]] = {}
 
     for agent, raw_action in agent_actions.items():
         if agent not in known_agents:
@@ -226,6 +248,8 @@ def translate_agent_actions_to_intentions(
         history_summary = ""
         reasoning = ""
         disband_mils = 0
+        keeps_word_report: Dict[str, int] = {}
+        aggressor_report: Dict[str, int] = {}
 
         try:
             action = _parse_action(raw_action, log_fn=log_fn)
@@ -309,6 +333,30 @@ def translate_agent_actions_to_intentions(
 
             disband_mils = _clamp_nonneg(_safe_int(action.get("disband_mils", 0), 0))
 
+            raw_keeps_word = _as_dict(action.get("keeps_word_report", {}))
+            if action.get("keeps_word_report", {}) != raw_keeps_word:
+                _log(log_fn, f"Agent {agent} keeps_word_report rejected due to schema")
+            for target, score_val in raw_keeps_word.items():
+                if not isinstance(target, str):
+                    continue
+                if target not in known_agents:
+                    continue
+                score = _safe_int(score_val, 0)
+                if 1 <= score <= 10:
+                    keeps_word_report[target] = score
+
+            raw_aggressor = _as_dict(action.get("aggressor_report", {}))
+            if action.get("aggressor_report", {}) != raw_aggressor:
+                _log(log_fn, f"Agent {agent} aggressor_report rejected due to schema")
+            for target, score_val in raw_aggressor.items():
+                if not isinstance(target, str):
+                    continue
+                if target not in known_agents:
+                    continue
+                score = _safe_int(score_val, 0)
+                if 1 <= score <= 10:
+                    aggressor_report[target] = score
+
         except Exception:
             purchase_mils = 0
             attacks = {}
@@ -318,6 +366,8 @@ def translate_agent_actions_to_intentions(
             summary_last_turn = ""
             history_summary = ""
             reasoning = ""
+            keeps_word_report = {}
+            aggressor_report = {}
 
         d_mil_purchase_intent[agent] = purchase_mils
         d_global_attacks[agent] = attacks
@@ -328,6 +378,8 @@ def translate_agent_actions_to_intentions(
         d_history_summary[agent] = history_summary
         d_reasoning[agent] = reasoning
         d_mils_disband_intent[agent] = disband_mils
+        d_keeps_word_report[agent] = keeps_word_report
+        d_aggressor_report[agent] = aggressor_report
 
     return (
         d_mil_purchase_intent,
@@ -339,6 +391,8 @@ def translate_agent_actions_to_intentions(
         d_history_summary,
         d_reasoning,
         d_mils_disband_intent,
+        d_keeps_word_report,
+        d_aggressor_report,
     )
 
 
@@ -362,6 +416,8 @@ def run_phase0(
     Dict[str, str],
     Dict[str, str],
     Dict[str, int],
+    Dict[str, Dict[str, int]],
+    Dict[str, Dict[str, int]],
 ]:
     """Execute Phase 0: build inputs, call agents, validate, and produce ledgers."""
     agent_names = list(agents.keys())

@@ -136,10 +136,51 @@ AGENT_ACTION_SCHEMA = {
             }
         },
 
-        # (6) Persistent agent-controlled summary
-        "summary": {
+        # (6) Summary of just-completed turn
+        "summary_last_turn": {
             "type": "string",
-            "description": "Agent-maintained summary persisted across turns"
+            "description": "Agent summary of the just-completed turn"
+        },
+
+        # (7) Compressed history summary
+        "history_summary": {
+            "type": "string",
+            "description": "Agent-maintained compressed history across turns"
+        },
+
+        # (8) Short reasoning note
+        "reasoning": {
+            "type": "string",
+            "description": "Brief explanation of decision logic (<= 50 words)"
+        },
+
+        # (9) Voluntary disbanding
+        "disband_mils": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of mils to voluntarily disband after the turn"
+        },
+
+        # (10) Keeps-word assessment report
+        "keeps_word_report": {
+            "type": "object",
+            "description": "Agent ratings (1-10) of promise-keeping for each agent, including self",
+            "additionalProperties": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+            }
+        },
+
+        # (11) Aggression assessment report
+        "aggressor_report": {
+            "type": "object",
+            "description": "Agent ratings (1-10) of aggression for each agent, including self",
+            "additionalProperties": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+            }
         },
     },
 
@@ -155,7 +196,12 @@ Minimal Valid Action Example:
   "cede_territories": { "AgentC": ["T3"] },
   "money_grants": { "AgentD": 20 },
   "messages": { "all": "Ceasefire proposal" },
-  "summary": "Attacked B, signaled peace"
+  "summary_last_turn": "Attacked B, signaled peace",
+  "history_summary": "Ongoing war with B; alliance with C.",
+  "reasoning": "B broke promises; maintain pressure.",
+  "disband_mils": 0,
+  "keeps_word_report": { "AgentA": 8, "AgentB": 2, "AgentC": 7 },
+  "aggressor_report": { "AgentA": 4, "AgentB": 8, "AgentC": 3 }
 }
 
 Validation policy (corrected + completed)
@@ -404,4 +450,3 @@ class DefaultAgent:
         }
         self.summary = action["summary"]
         return action
-

@@ -97,6 +97,8 @@ class Phase0ScriptTests(unittest.TestCase):
                 d_history_summary,
                 d_reasoning,
                 d_mils_disband_intent,
+                d_keeps_word_report,
+                d_aggressor_report,
             ) = self.phase0_engine.run_turn(
                 script_name=name,
                 turn=turn_num,

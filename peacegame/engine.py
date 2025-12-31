@@ -51,6 +51,8 @@ class Phase0Engine:
         Dict[str, str],
         Dict[str, str],
         Dict[str, int],
+        Dict[str, Dict[str, int]],
+        Dict[str, Dict[str, int]],
     ]:
         self.log(f"Turn {turn} start for {script_name}")
         inputs = assemble_agent_inputs(
@@ -74,6 +76,8 @@ class Phase0Engine:
             d_history_summary,
             d_reasoning,
             d_mils_disband_intent,
+            d_keeps_word_report,
+            d_aggressor_report,
         ) = translate_agent_actions_to_intentions(
             actions,
             known_agents=set(agents.keys()),
@@ -173,6 +177,26 @@ class Phase0Engine:
                     json.dumps(d_mils_disband_intent.get(agent, 0), sort_keys=True),
                 ]
             )
+            self._rows.append(
+                [
+                    script_name,
+                    str(turn),
+                    agent,
+                    "phase0",
+                    "d_keeps_word_report",
+                    json.dumps(d_keeps_word_report.get(agent, {}), sort_keys=True),
+                ]
+            )
+            self._rows.append(
+                [
+                    script_name,
+                    str(turn),
+                    agent,
+                    "phase0",
+                    "d_aggressor_report",
+                    json.dumps(d_aggressor_report.get(agent, {}), sort_keys=True),
+                ]
+            )
 
         self.log(f"Turn {turn} outputs: {d_summary_last_turn}")
         return (
@@ -185,6 +209,8 @@ class Phase0Engine:
             d_history_summary,
             d_reasoning,
             d_mils_disband_intent,
+            d_keeps_word_report,
+            d_aggressor_report,
         )
 
     def log_initial_state(

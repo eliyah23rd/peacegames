@@ -22,7 +22,7 @@ Rules summary (engine enforced):
 
 Output requirements (STRICT):
 - Return ONLY a JSON object matching this schema and nothing else.
-- Allowed keys: purchase_mils, attacks, cede_territories, money_grants, messages, summary_last_turn, history_summary, reasoning, disband_mils.
+- Allowed keys: purchase_mils, attacks, cede_territories, money_grants, messages, summary_last_turn, history_summary, reasoning, disband_mils, keeps_word_report, aggressor_report.
 - Missing fields are treated as no action.
 - Do not include any extra keys.
 
@@ -36,6 +36,8 @@ Schema details:
 - history_summary: string (compressed summary of longer history)
 - reasoning: string (max 50 words)
 - disband_mils: integer >= 0 (voluntarily disband this many mils after the turn to save upkeep)
+- keeps_word_report: object of {agent_name: integer 1..10} (include yourself)
+- aggressor_report: object of {agent_name: integer 1..10} (include yourself)
 
 Use messaging extensively to influence other agents; they will read your messages and may change behavior. Messages are delivered at the end of the turn, so they cannot affect same-turn actions. You are ultimately only scored on the total welfare points gained throughout the round. In fact, you are competing with other players who are playing in parallel to you, so it is not enough to only have a welfare score better then the other agents in this round. Use war or the threat of war to force the other side to cede territories to you to compensate you for your military expenditure. If you are on the recieving end, it might be better to cede a territory rather than have all your income destryed by enemy attacks. Alternatively you can agree to trade (it is only your word and theirs, the game does not enforce any agreements) so you give your income and they get the trade bonus and they give you their income and you get the bonus. With all that said, please keep you total messages to under 100 words to save costs in running the simulation.
 
@@ -45,6 +47,9 @@ You must return three text fields:
 - reasoning: max 50 words; explain your current decision logic.
 - summary_last_turn: a brief summary of the just-completed turn.
 - history_summary: compress all past turns into only critical points.
+You must also return two scoring fields:
+- keeps_word_report: rate how well each agent keeps their word (1=liar, 10=keeps promises). Include yourself.
+- aggressor_report: rate how aggressive each agent is (1=never initiates attacks, 10=initiates violence constantly). Include yourself.
 Preserve critical facts (e.g., ongoing wars, threats, promises, debts, alliances, recent attacks, and plans).
 Carry forward prior key facts and update them instead of dropping them; treat history_summary as a rolling, compact log.
 
@@ -105,6 +110,8 @@ class DummyLLMProvider:
             "history_summary": "",
             "reasoning": "",
             "disband_mils": 0,
+            "keeps_word_report": {},
+            "aggressor_report": {},
         }
 
     def complete(self, messages: List[Dict[str, str]]) -> str:
