@@ -31,8 +31,8 @@ def build_territory_graph(
     *,
     target_avg_degree: float = 2.5,
     seed: int | None = None,
-    elongation_bias: float = 2.0,
-    l_turn_fraction: float = 0.45,
+    elongation_bias: float = 4.0,
+    shape_mode: str = "elbow",
 ) -> Tuple[Dict[str, Set[str]], Dict[str, Coord]]:
     """Lay out territories on a grid, biasing for multi-adjacency to reach target avg degree."""
     names_list = [name for name in names if name]
@@ -46,7 +46,17 @@ def build_territory_graph(
     occupied = {positions[names_list[0]]}
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     primary_dir = rng.choice(directions)
-    secondary_dir = rng.choice([d for d in directions if d != primary_dir])
+    if shape_mode == "zigzag":
+        dir_sequence = [primary_dir, (-primary_dir[0], -primary_dir[1])]
+        turn_steps = [0.4, 0.7]
+    elif shape_mode == "arch":
+        secondary_dir = rng.choice([d for d in directions if d != primary_dir])
+        dir_sequence = [primary_dir, secondary_dir, (-primary_dir[0], -primary_dir[1])]
+        turn_steps = [0.35, 0.7]
+    else:
+        secondary_dir = rng.choice([d for d in directions if d != primary_dir])
+        dir_sequence = [primary_dir, secondary_dir]
+        turn_steps = [0.45]
 
     for idx, name in enumerate(names_list[1:], start=1):
         candidates: Dict[Coord, int] = {}
@@ -62,22 +72,20 @@ def build_territory_graph(
         max_x = max(c[0] for c in occupied)
         min_y = min(c[1] for c in occupied)
         max_y = max(c[1] for c in occupied)
-        turn_step = int(len(names_list) * l_turn_fraction)
+        active_dirs = [dir_sequence[0]]
+        if len(turn_steps) == 2 and idx >= int(len(names_list) * turn_steps[1]):
+            active_dirs = dir_sequence[:3]
+        elif idx >= int(len(names_list) * turn_steps[0]):
+            active_dirs = dir_sequence[:2]
         for coord, neighbor_count in candidates.items():
             weight = max(1, neighbor_count * neighbor_count)
-            # Bias elongation by expanding along a preferred axis (or turning to L-shape).
-            dx = coord[0] - max_x if primary_dir == (1, 0) else coord[0] - min_x if primary_dir == (-1, 0) else 0
-            dy = coord[1] - max_y if primary_dir == (0, 1) else coord[1] - min_y if primary_dir == (0, -1) else 0
-            expands_primary = (dx > 0) or (dy > 0)
-            if expands_primary:
-                weight = int(weight * (1 + elongation_bias))
-
-            if idx >= turn_step:
-                sdx = coord[0] - max_x if secondary_dir == (1, 0) else coord[0] - min_x if secondary_dir == (-1, 0) else 0
-                sdy = coord[1] - max_y if secondary_dir == (0, 1) else coord[1] - min_y if secondary_dir == (0, -1) else 0
-                expands_secondary = (sdx > 0) or (sdy > 0)
-                if expands_secondary:
-                    weight = int(weight * (1 + elongation_bias * 0.8))
+            # Bias elongation by expanding along preferred directions.
+            for direction in active_dirs:
+                dx = coord[0] - max_x if direction == (1, 0) else coord[0] - min_x if direction == (-1, 0) else 0
+                dy = coord[1] - max_y if direction == (0, 1) else coord[1] - min_y if direction == (0, -1) else 0
+                expands = (dx > 0) or (dy > 0)
+                if expands:
+                    weight = int(weight * (1 + elongation_bias))
             weighted.extend([coord] * weight)
 
         if not weighted:
@@ -168,6 +176,13 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--count", type=int, default=None, help="Number of territories to generate")
     parser.add_argument(
+        "--shape",
+        type=str,
+        default="elbow",
+        choices=["elbow", "arch", "zigzag"],
+        help="Layout bias: elbow (L), arch, or zigzag",
+    )
+    parser.add_argument(
         "--names",
         type=str,
         default="names/territories.txt",
@@ -184,7 +199,11 @@ def main() -> None:
     if not names:
         names = [f"Terr{i}" for i in range(20)]
 
-    _, positions = build_territory_graph(names, seed=args.seed)
+    _, positions = build_territory_graph(
+        names,
+        seed=args.seed,
+        shape_mode=args.shape,
+    )
     if args.show:
         out_path = Path("visualizations") / "territory_layout.png"
         _render_layout_png(positions, out_path=out_path)
