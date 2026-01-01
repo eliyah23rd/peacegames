@@ -1,14 +1,14 @@
 {
-  "name": "four_agent_violent",
+  "name": "four_agent_violent_hard",
   "model": "gpt-5-mini",
   "num_turns": 3,
   "constants": {
     "c_money_per_territory": 10,
     "c_mil_purchase_price": 4,
-    "c_mil_upkeep_price": 2,
-    "c_defense_destroy_factor": 8,
+    "c_mil_upkeep_price": 4,
+    "c_defense_destroy_factor": 4,
     "c_trade_factor": 2.0,
-    "c_damage_per_attack_mil": 10
+    "c_damage_per_attack_mil": 5
   },
   "initial_state": {
     "agent_territories": {
