@@ -85,7 +85,10 @@ def main() -> int:
             if shuffle_mods:
                 import random
 
-                random.shuffle(mods_for_round)
+                if len(modifier_pool) >= len(agent_names):
+                    mods_for_round = random.sample(modifier_pool, len(agent_names))
+                else:
+                    random.shuffle(mods_for_round)
 
         agents = {}
         mod_map: Dict[str, str] = {}

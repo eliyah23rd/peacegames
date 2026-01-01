@@ -3,6 +3,6 @@
   "setup": "initial_setup/four_agent_exp.json",
   "rounds": 5,
   "model": "gpt-5-mini",
-  "modifiers": ["diplomacy", "opportunist", "austerity", "aggressive"],
+  "modifiers": ["diplomacy", "opportunist", "austerity", "aggressive", "sneaky", "peace_enforcer"],
   "shuffle_modifiers": true
 }
