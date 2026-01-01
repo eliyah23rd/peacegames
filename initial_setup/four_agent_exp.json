@@ -1,5 +1,5 @@
 {
-  "name": "four_agent_violent_hard",
+  "name": "four_agent_exp",
   "model": "gpt-5-mini",
   "num_turns": 3,
   "constants": {

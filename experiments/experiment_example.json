@@ -1,6 +1,6 @@
 {
   "name": "four_agent_experiment",
-  "setup": "initial_setup/four_agent_violent_hard.json",
+  "setup": "initial_setup/four_agent_exp.json",
   "rounds": 5,
   "model": "gpt-5-mini",
   "modifiers": ["diplomacy", "opportunist", "austerity", "aggressive"],
