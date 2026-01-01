@@ -34,6 +34,22 @@ def _normalize_modifiers(mods: list[str]) -> list[str]:
     return out
 
 
+def _format_round_command(
+    *,
+    setup_path: str,
+    model: str,
+    modifiers: List[str],
+    round_idx: int,
+    rounds: int,
+) -> str:
+    mods = " ".join(modifiers)
+    suffix = f" {mods}" if mods else ""
+    return (
+        f"Round {round_idx + 1}/{rounds}: "
+        f"python run_llm_simulation.py {setup_path} --model {model}{suffix}"
+    )
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print("Usage: python run_experiments.py experiments/<config>.json")
@@ -89,6 +105,16 @@ def main() -> int:
                     mods_for_round = random.sample(modifier_pool, len(agent_names))
                 else:
                     random.shuffle(mods_for_round)
+
+        print(
+            _format_round_command(
+                setup_path=setup_path,
+                model=model,
+                modifiers=mods_for_round,
+                round_idx=round_idx,
+                rounds=rounds,
+            )
+        )
 
         agents = {}
         mod_map: Dict[str, str] = {}

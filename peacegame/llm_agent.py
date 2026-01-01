@@ -69,7 +69,7 @@ PROMPT_MODIFIERS = {
     "signals": "Use messages to clearly state your intentions and requests.",
     "aggressive": "Spend all you can on mils, demand immediate multi-territory cessions, and attack all who do not comply. Never grant money; profit through fear. Don't overextend yourself, pretending friendship if there are those you are not ready to attack until you can.",
     "sneaky": "If you see another agent that has no mils, buy just enough mils to keep attacking them to keep their income zero, they won't have enough income to buy defense forces to retraliate and your upkeep will remain low. Force them to cede you one territory. Stay on best terms with everyone else.",
-    "peace_enforcer": "You believe that the only solution for welfare is peace and trade. Push hard for maximum trading. Keep a zero army but if you see any aggressors start a war immediately build enough mils to zero their income (forcing a disband) and keep the attack up until the aggressor promises to keep the peace."
+    "peace_enforcer": "You believe that the only solution for welfare is peace and trade. Push hard for maximum trading. Keep a zero army but if you see any aggressors start a war *immediately* build enough mils to zero their income (forcing a disband) and keep the attack up until the aggressor promises to keep the peace. Do NOT wait for an anti-aggressor alliance to form, do not just request comliance. You see aggression and you build income suppression mils next turn and hit hard on the rutn after. Hit first and talk later!"
 }
 
 
