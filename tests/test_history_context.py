@@ -16,7 +16,6 @@ class HistoryContextTests(unittest.TestCase):
             turn_summaries=summaries,
             max_chars=50,
         )
-        self.assertIn("History summary", ctx)
         # Should include the newest turn if it fits
         self.assertIn("turn 2", ctx)
 

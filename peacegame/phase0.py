@@ -117,17 +117,13 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         _log(log_fn, "Agent disband_mils rejected due to schema")
 
     keeps_word_report = action.get("keeps_word_report")
-    if isinstance(keeps_word_report, dict) and all(
-        isinstance(v, int) and 1 <= v <= 10 for v in keeps_word_report.values()
-    ):
+    if isinstance(keeps_word_report, dict):
         validated["keeps_word_report"] = keeps_word_report
     elif keeps_word_report is not None:
         _log(log_fn, "Agent keeps_word_report rejected due to schema")
 
     aggressor_report = action.get("aggressor_report")
-    if isinstance(aggressor_report, dict) and all(
-        isinstance(v, int) and 1 <= v <= 10 for v in aggressor_report.values()
-    ):
+    if isinstance(aggressor_report, dict):
         validated["aggressor_report"] = aggressor_report
     elif aggressor_report is not None:
         _log(log_fn, "Agent aggressor_report rejected due to schema")
