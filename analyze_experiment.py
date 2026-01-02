@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 from dataclasses import dataclass
@@ -99,7 +100,7 @@ def summarize_experiment(data: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_bar(values: Dict[str, float], *, title: str, out_path: Path) -> None:
+def render_bar_png(values: Dict[str, float], *, title: str) -> bytes:
     labels = list(values.keys())
     scores = [values[k] for k in labels]
     fig, ax = plt.subplots(figsize=(9, 4))
@@ -108,12 +109,13 @@ def _render_bar(values: Dict[str, float], *, title: str, out_path: Path) -> None
     ax.set_ylabel("Value")
     ax.set_xticklabels(labels, rotation=30, ha="right")
     fig.tight_layout()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, dpi=150)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150)
     plt.close(fig)
+    return buf.getvalue()
 
 
-def _render_box(stats: Dict[str, ModifierStats], *, title: str, out_path: Path) -> None:
+def render_box_png(stats: Dict[str, ModifierStats], *, title: str) -> bytes:
     labels = list(stats.keys())
     data = [stats[k].welfare_samples for k in labels]
     fig, ax = plt.subplots(figsize=(9, 4))
@@ -122,33 +124,49 @@ def _render_box(stats: Dict[str, ModifierStats], *, title: str, out_path: Path) 
     ax.set_ylabel("Welfare")
     ax.set_xticklabels(labels, rotation=30, ha="right")
     fig.tight_layout()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, dpi=150)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150)
     plt.close(fig)
+    return buf.getvalue()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Analyze experiment results")
     parser.add_argument("path", help="Path to experiment JSON")
+    parser.add_argument(
+        "--write-files",
+        action="store_true",
+        help="Write summary/plots to disk instead of stdout only",
+    )
     args = parser.parse_args()
 
     data = _load_json(args.path)
     stats = compute_modifier_stats(data)
     summary = summarize_experiment(data)
 
-    stem = Path(args.path).stem
-    summary_path = Path("experiments") / f"{stem}_summary.txt"
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(summary, encoding="utf-8")
+    if args.write_files:
+        stem = Path(args.path).stem
+        summary_path = Path("experiments") / f"{stem}_summary.txt"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(summary, encoding="utf-8")
 
-    avg_values = {k: v.average() for k, v in stats.items()}
-    win_values = {k: float(v.wins) for k, v in stats.items()}
+        avg_values = {k: v.average() for k, v in stats.items()}
+        win_values = {k: float(v.wins) for k, v in stats.items()}
 
-    _render_bar(avg_values, title="Average Welfare by Modifier", out_path=Path("visualizations") / f"{stem}_avg.png")
-    _render_bar(win_values, title="Wins by Modifier", out_path=Path("visualizations") / f"{stem}_wins.png")
-    _render_box(stats, title="Welfare Distribution by Modifier", out_path=Path("visualizations") / f"{stem}_dist.png")
-
-    print(f"Summary written to {summary_path}")
+        out_dir = Path("visualizations")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / f"{stem}_avg.png").write_bytes(
+            render_bar_png(avg_values, title="Average Welfare by Modifier")
+        )
+        (out_dir / f"{stem}_wins.png").write_bytes(
+            render_bar_png(win_values, title="Wins by Modifier")
+        )
+        (out_dir / f"{stem}_dist.png").write_bytes(
+            render_box_png(stats, title="Welfare Distribution by Modifier")
+        )
+        print(f"Summary written to {summary_path}")
+    else:
+        print(summary)
     return 0
 
 

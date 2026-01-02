@@ -39,6 +39,13 @@ const mapPrevTurnBtn = document.getElementById("mapPrevTurnBtn");
 const mapNextTurnBtn = document.getElementById("mapNextTurnBtn");
 const mapBackBtn = document.getElementById("mapBackBtn");
 const mapLegend = document.getElementById("mapLegend");
+const experimentViewBtn = document.getElementById("experimentViewBtn");
+const experimentView = document.getElementById("experimentView");
+const experimentBackBtn = document.getElementById("experimentBackBtn");
+const experimentFileSelect = document.getElementById("experimentFileSelect");
+const experimentChartSelect = document.getElementById("experimentChartSelect");
+const experimentSummary = document.getElementById("experimentSummary");
+const experimentChart = document.getElementById("experimentChart");
 
 async function loadFiles() {
   const res = await fetch("/api/files");
@@ -55,6 +62,8 @@ async function loadFiles() {
     dataFileSelect.value = state.files[0];
     await loadData(state.files[0]);
   }
+
+  await loadExperimentFiles();
 }
 
 async function loadData(filename) {
@@ -64,6 +73,30 @@ async function loadData(filename) {
   populateMetrics();
   renderChart();
   renderTurnTable();
+}
+
+async function loadExperimentFiles() {
+  const res = await fetch("/api/experiments");
+  const payload = await res.json();
+  const files = payload.files || [];
+  experimentFileSelect.innerHTML = "";
+  files.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    experimentFileSelect.appendChild(opt);
+  });
+  if (files.length > 0) {
+    experimentFileSelect.value = files[0];
+    await loadExperiment(files[0]);
+  }
+}
+
+async function loadExperiment(filename) {
+  const res = await fetch(`/api/experiment?file=${encodeURIComponent(filename)}`);
+  const payload = await res.json();
+  experimentSummary.textContent = payload.summary || "";
+  renderExperimentChart();
 }
 
 function populateMetrics() {
@@ -260,12 +293,14 @@ turnViewBtn.addEventListener("click", () => {
   timelineView.classList.add("hidden");
   turnView.classList.remove("hidden");
   mapView.classList.add("hidden");
+  experimentView.classList.add("hidden");
   renderTurnTable();
 });
 
 backBtn.addEventListener("click", () => {
   turnView.classList.add("hidden");
   mapView.classList.add("hidden");
+  experimentView.classList.add("hidden");
   timelineView.classList.remove("hidden");
 });
 
@@ -285,6 +320,7 @@ mapViewBtn.addEventListener("click", () => {
   timelineView.classList.add("hidden");
   turnView.classList.add("hidden");
   mapView.classList.remove("hidden");
+  experimentView.classList.add("hidden");
   renderMap();
 });
 
@@ -303,6 +339,36 @@ mapNextTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
   state.currentTurnIndex = Math.min(state.data.turns.length - 1, state.currentTurnIndex + 1);
   renderMap();
+});
+
+function renderExperimentChart() {
+  const file = experimentFileSelect.value;
+  const chartType = experimentChartSelect.value;
+  if (!file) {
+    experimentChart.removeAttribute("src");
+    return;
+  }
+  experimentChart.src = `/api/experiment_chart?file=${encodeURIComponent(file)}&type=${chartType}&t=${Date.now()}`;
+}
+
+experimentViewBtn.addEventListener("click", () => {
+  timelineView.classList.add("hidden");
+  turnView.classList.add("hidden");
+  mapView.classList.add("hidden");
+  experimentView.classList.remove("hidden");
+});
+
+experimentBackBtn.addEventListener("click", () => {
+  experimentView.classList.add("hidden");
+  timelineView.classList.remove("hidden");
+});
+
+experimentFileSelect.addEventListener("change", async (e) => {
+  await loadExperiment(e.target.value);
+});
+
+experimentChartSelect.addEventListener("change", () => {
+  renderExperimentChart();
 });
 
 loadFiles().catch((err) => {

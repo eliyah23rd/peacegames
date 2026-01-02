@@ -64,6 +64,73 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
             self._send_json(payload)
             return
 
+        if parsed.path == "/api/experiments":
+            exp_dir = Path(os.getcwd()) / "experiments"
+            if not exp_dir.exists():
+                self._send_json({"files": []})
+                return
+            files = sorted(p.name for p in exp_dir.iterdir() if p.is_file() and p.suffix == ".json")
+            self._send_json({"files": files})
+            return
+
+        if parsed.path == "/api/experiment":
+            params = parse_qs(parsed.query)
+            file_name = params.get("file", [""])[0]
+            safe = os.path.basename(unquote(file_name))
+            exp_path = Path(os.getcwd()) / "experiments" / safe
+            if not exp_path.is_file():
+                self.send_error(HTTPStatus.NOT_FOUND, "Experiment file not found")
+                return
+            try:
+                data = json.loads(exp_path.read_text(encoding="utf-8"))
+            except Exception:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Invalid experiment file")
+                return
+
+            from analyze_experiment import summarize_experiment
+
+            summary = summarize_experiment(data)
+            self._send_json({"summary": summary, "raw": data})
+            return
+
+        if parsed.path == "/api/experiment_chart":
+            params = parse_qs(parsed.query)
+            file_name = params.get("file", [""])[0]
+            chart_type = params.get("type", ["avg"])[0]
+            safe = os.path.basename(unquote(file_name))
+            exp_path = Path(os.getcwd()) / "experiments" / safe
+            if not exp_path.is_file():
+                self.send_error(HTTPStatus.NOT_FOUND, "Experiment file not found")
+                return
+            try:
+                data = json.loads(exp_path.read_text(encoding="utf-8"))
+            except Exception:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Invalid experiment file")
+                return
+
+            from analyze_experiment import (
+                compute_modifier_stats,
+                render_bar_png,
+                render_box_png,
+            )
+
+            stats = compute_modifier_stats(data)
+            if chart_type == "wins":
+                values = {k: float(v.wins) for k, v in stats.items()}
+                img = render_bar_png(values, title="Wins by Modifier")
+            elif chart_type == "dist":
+                img = render_box_png(stats, title="Welfare Distribution by Modifier")
+            else:
+                values = {k: v.average() for k, v in stats.items()}
+                img = render_bar_png(values, title="Average Welfare by Modifier")
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(img)))
+            self.end_headers()
+            self.wfile.write(img)
+            return
+
         if parsed.path == "/api/map":
             params = parse_qs(parsed.query)
             file_name = params.get("file", [""])[0]

@@ -159,6 +159,36 @@ h2 {
   background: #fffdf9;
 }
 
+.experiment-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.experiment-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(280px, 1fr);
+  gap: 16px;
+}
+
+.experiment-summary {
+  margin: 0;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background: #fff8f0;
+  color: var(--ink);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 860px) {
+  .experiment-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .metric-grid {
   overflow-x: auto;
   display: grid;

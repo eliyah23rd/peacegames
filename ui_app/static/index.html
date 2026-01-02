@@ -25,6 +25,7 @@
           </label>
           <button id="turnViewBtn" class="primary">Per-turn view</button>
           <button id="mapViewBtn" class="ghost">Map view</button>
+          <button id="experimentViewBtn" class="ghost">Experiment view</button>
         </div>
       </header>
 
@@ -69,6 +70,36 @@
           </div>
           <div class="legend" id="mapLegend"></div>
           <img id="mapImage" class="map-canvas" alt="Territory map" />
+        </section>
+
+        <section id="experimentView" class="card hidden">
+          <div class="card-header">
+            <div>
+              <h2>Experiment Summary</h2>
+              <p>Analyze multi-round runs without generating files.</p>
+            </div>
+            <div class="turn-controls">
+              <button id="experimentBackBtn" class="ghost">Back to timeline</button>
+            </div>
+          </div>
+          <div class="experiment-controls">
+            <label>
+              Experiment file
+              <select id="experimentFileSelect"></select>
+            </label>
+            <label>
+              Chart
+              <select id="experimentChartSelect">
+                <option value="avg">Average welfare</option>
+                <option value="wins">Wins</option>
+                <option value="dist">Welfare distribution</option>
+              </select>
+            </label>
+          </div>
+          <div class="experiment-layout">
+            <pre id="experimentSummary" class="experiment-summary"></pre>
+            <img id="experimentChart" class="map-canvas" alt="Experiment chart" />
+          </div>
         </section>
       </main>
     </div>
