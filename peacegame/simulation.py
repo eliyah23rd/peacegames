@@ -24,11 +24,13 @@ def build_history_context(
     max_chars: int,
 ) -> str:
     """Compose history summary plus recent per-turn summaries capped by max_chars."""
+    if not history_summary and not turn_summaries:
+        return ""
+
     parts: List[str] = []
     if history_summary:
         parts.append("History summary:")
         parts.append(history_summary)
-
     if turn_summaries:
         parts.append("Recent turns:")
         for turn, summary in reversed(turn_summaries):
@@ -38,20 +40,29 @@ def build_history_context(
     if len(combined) <= max_chars:
         return combined
 
-    # Truncate from the oldest turn summaries first
-    trimmed_parts = []
-    if history_summary:
-        trimmed_parts.append("History summary:")
-        trimmed_parts.append(history_summary)
-    if turn_summaries:
-        trimmed_parts.append("Recent turns:")
-        for turn, summary in reversed(turn_summaries):
-            candidate = "\n".join(trimmed_parts + [f"turn {turn}: {summary}"])
-            if len(candidate) > max_chars:
-                break
-            trimmed_parts.append(f"turn {turn}: {summary}")
+    recent_lines = [f"turn {turn}: {summary}" for turn, summary in reversed(turn_summaries)]
+    recent_block = "\n".join(["Recent turns:"] + recent_lines) if recent_lines else ""
+    if recent_block and len(recent_block) <= max_chars:
+        if history_summary:
+            header = "History summary:\n"
+            remaining = max_chars - len(recent_block) - 1
+            if remaining > len(header):
+                allowed = remaining - len(header)
+                return header + history_summary[:allowed] + "\n" + recent_block
+        return recent_block
 
-    return "\n".join(trimmed_parts)
+    if recent_lines:
+        trimmed = ["Recent turns:"]
+        for line in recent_lines:
+            candidate = "\n".join(trimmed + [line])
+            if len(candidate) > max_chars:
+                if len(trimmed) == 1:
+                    return line[:max_chars]
+                break
+            trimmed.append(line)
+        return "\n".join(trimmed)
+
+    return history_summary[:max_chars]
 
 
 def _transpose_attacks(d_global_attacks: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
