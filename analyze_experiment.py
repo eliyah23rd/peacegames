@@ -103,10 +103,14 @@ def summarize_experiment(data: Dict[str, Any]) -> str:
 def render_bar_png(values: Dict[str, float], *, title: str) -> bytes:
     labels = list(values.keys())
     scores = [values[k] for k in labels]
-    fig, ax = plt.subplots(figsize=(9, 4))
+    fig, ax = plt.subplots(figsize=(10, 5))
     ax.bar(labels, scores, color="#5aa39a")
     ax.set_title(title)
     ax.set_ylabel("Value")
+    ax.tick_params(axis="x", labelsize=11)
+    ax.tick_params(axis="y", labelsize=11)
+    ax.set_title(title, fontsize=13)
+    ax.set_ylabel("Value", fontsize=11)
     ax.set_xticklabels(labels, rotation=30, ha="right")
     fig.tight_layout()
     buf = io.BytesIO()
@@ -118,10 +122,14 @@ def render_bar_png(values: Dict[str, float], *, title: str) -> bytes:
 def render_box_png(stats: Dict[str, ModifierStats], *, title: str) -> bytes:
     labels = list(stats.keys())
     data = [stats[k].welfare_samples for k in labels]
-    fig, ax = plt.subplots(figsize=(9, 4))
+    fig, ax = plt.subplots(figsize=(10, 5))
     ax.boxplot(data, labels=labels, showfliers=False, whis=(0, 100))
     ax.set_title(title)
     ax.set_ylabel("Welfare")
+    ax.tick_params(axis="x", labelsize=11)
+    ax.tick_params(axis="y", labelsize=11)
+    ax.set_title(title, fontsize=13)
+    ax.set_ylabel("Welfare", fontsize=11)
     ax.set_xticklabels(labels, rotation=30, ha="right")
     fig.tight_layout()
     buf = io.BytesIO()
