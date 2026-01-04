@@ -2,3 +2,5 @@
 *.log
 *.xls
 round_data/
+experiments/*.json
+!experiments/configs/*.json
