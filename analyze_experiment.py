@@ -119,7 +119,7 @@ def render_box_png(stats: Dict[str, ModifierStats], *, title: str) -> bytes:
     labels = list(stats.keys())
     data = [stats[k].welfare_samples for k in labels]
     fig, ax = plt.subplots(figsize=(9, 4))
-    ax.boxplot(data, labels=labels, showfliers=False)
+    ax.boxplot(data, labels=labels, showfliers=False, whis=(0, 100))
     ax.set_title(title)
     ax.set_ylabel("Welfare")
     ax.set_xticklabels(labels, rotation=30, ha="right")
