@@ -706,6 +706,7 @@ class ResourceSimulationEngine:
                     f"food_ratio({res_ratios.get('food', 0)}) = {effective}"
                 ),
                 f"Resources: totals={res_totals}, ratios={res_ratios}",
+                "Note: resource grants do not cost money; they only transfer resources.",
                 f"Costs: upkeep={upkeep}, purchases={purchased}",
                 f"Army: lost={lost}, disbanded={disbanded}",
                 f"Grants: money_received={money_received}, money_sent={money_sent}, resources_received={res_received}, resources_sent={res_sent}",

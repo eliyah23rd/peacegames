@@ -73,6 +73,7 @@ Rules summary (engine enforced):
 - You may grant money and resources; all grants affect NEXT turn (not this one).
 - Money grants affect welfare next turn: welfare_this_turn = available_money + grants_received * trade_factor.
 - Resource grants affect next turn resource totals and income.
+- Resource grants do NOT cost money; they only transfer your resource production.
 - You may cede territories to other agents (the only way ownership changes).
 - Messages are optional and do not directly affect the engine.
 - You may voluntarily disband mils at end of turn to reduce upkeep if no war is expected.
@@ -97,6 +98,9 @@ Schema details:
 - disband_mils: integer >= 0 (voluntarily disband this many mils after the turn to save upkeep)
 - keeps_word_report: object of {agent_name: integer 1..10} (include yourself)
 - aggressor_report: object of {agent_name: integer 1..10} (include yourself)
+
+Example resource grant JSON:
+{"resource_grants": {"OtherAgent": {"food": 2}}}
 
 Use messaging extensively to influence other agents; they will read your messages and may change behavior. Messages are delivered at the end of the turn, so they cannot affect same-turn actions.
 
