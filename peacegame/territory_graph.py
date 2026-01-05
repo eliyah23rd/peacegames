@@ -356,8 +356,8 @@ def render_ownership_png(
         res = territory_resources.get(name, {})
         if not res:
             return
-        size = 0.12
-        spacing = 0.18
+        size = 0.08
+        spacing = 0.14
         order = ["energy", "minerals", "food"]
         start_x = x + 0.18
         start_y = y + 0.78
@@ -374,29 +374,44 @@ def render_ownership_png(
             cy = start_y - row * spacing
             color = resource_colors.get(rtype, "#dddddd")
             if rtype == "energy":
-                points = [
-                    (cx, cy + size),
-                    (cx - size, cy - size),
-                    (cx + size, cy - size),
+                bolt = [
+                    (cx - size * 0.4, cy + size * 1.1),
+                    (cx + size * 0.1, cy + size * 0.2),
+                    (cx - size * 0.1, cy + size * 0.2),
+                    (cx + size * 0.4, cy - size * 1.1),
+                    (cx - size * 0.1, cy - size * 0.2),
+                    (cx + size * 0.1, cy - size * 0.2),
                 ]
-                patch = Polygon(points, closed=True, facecolor=color, edgecolor="#4a423c", linewidth=0.6)
+                patch = Polygon(bolt, closed=True, facecolor=color, edgecolor="#4a423c", linewidth=0.6)
             elif rtype == "minerals":
-                patch = Rectangle(
-                    (cx - size, cy - size),
-                    2 * size,
-                    2 * size,
-                    facecolor=color,
-                    edgecolor="#4a423c",
-                    linewidth=0.6,
-                )
+                hexagon = [
+                    (cx, cy + size),
+                    (cx + size * 0.9, cy + size * 0.4),
+                    (cx + size * 0.9, cy - size * 0.4),
+                    (cx, cy - size),
+                    (cx - size * 0.9, cy - size * 0.4),
+                    (cx - size * 0.9, cy + size * 0.4),
+                ]
+                patch = Polygon(hexagon, closed=True, facecolor=color, edgecolor="#4a423c", linewidth=0.6)
             else:
-                patch = Circle(
+                kernel = Circle(
                     (cx, cy),
-                    radius=size,
+                    radius=size * 0.85,
                     facecolor=color,
                     edgecolor="#4a423c",
                     linewidth=0.6,
                 )
+                ax.add_patch(kernel)
+                stalk = Rectangle(
+                    (cx - size * 0.15, cy - size * 1.4),
+                    size * 0.3,
+                    size * 0.7,
+                    facecolor="#4a423c",
+                    edgecolor="#4a423c",
+                    linewidth=0.0,
+                )
+                ax.add_patch(stalk)
+                continue
             ax.add_patch(patch)
 
     for idx, name in enumerate(territory_names):
