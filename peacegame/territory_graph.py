@@ -291,8 +291,9 @@ def render_ownership_png(
 
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl")
     import io
+    import matplotlib.image as mpimg
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Circle, Polygon, Rectangle
+    from matplotlib.patches import Polygon
     from matplotlib.path import Path
     from matplotlib.patches import PathPatch
 
@@ -344,11 +345,8 @@ def render_ownership_png(
             return pts
         return list(reversed(pts))
 
-    resource_colors = {
-        "energy": "#f5c04d",
-        "minerals": "#9aa4ad",
-        "food": "#6fbf5b",
-    }
+    icon_cache: Dict[str, any] = {}
+    icons_dir = Path(__file__).resolve().parent.parent / "icons"
 
     def _draw_resource_icons(name: str, x: float, y: float) -> None:
         if not territory_resources:
@@ -372,47 +370,34 @@ def render_ownership_png(
             col = idx_icon % 3
             cx = start_x + col * spacing
             cy = start_y - row * spacing
-            color = resource_colors.get(rtype, "#dddddd")
-            if rtype == "energy":
-                bolt = [
-                    (cx - size * 0.4, cy + size * 1.1),
-                    (cx + size * 0.1, cy + size * 0.2),
-                    (cx - size * 0.1, cy + size * 0.2),
-                    (cx + size * 0.4, cy - size * 1.1),
-                    (cx - size * 0.1, cy - size * 0.2),
-                    (cx + size * 0.1, cy - size * 0.2),
-                ]
-                patch = Polygon(bolt, closed=True, facecolor=color, edgecolor="#4a423c", linewidth=0.6)
-            elif rtype == "minerals":
-                hexagon = [
-                    (cx, cy + size),
-                    (cx + size * 0.9, cy + size * 0.4),
-                    (cx + size * 0.9, cy - size * 0.4),
-                    (cx, cy - size),
-                    (cx - size * 0.9, cy - size * 0.4),
-                    (cx - size * 0.9, cy + size * 0.4),
-                ]
-                patch = Polygon(hexagon, closed=True, facecolor=color, edgecolor="#4a423c", linewidth=0.6)
+            icon_path = icons_dir / f"{rtype}.png"
+            if icon_path.is_file():
+                if rtype not in icon_cache:
+                    icon_cache[rtype] = mpimg.imread(icon_path)
+                img = icon_cache[rtype]
+                ax.imshow(
+                    img,
+                    extent=(cx - size, cx + size, cy - size, cy + size),
+                    interpolation="lanczos",
+                    zorder=5,
+                )
             else:
-                kernel = Circle(
-                    (cx, cy),
-                    radius=size * 0.85,
-                    facecolor=color,
-                    edgecolor="#4a423c",
-                    linewidth=0.6,
+                # Fallback to a tiny triangle so the map still renders.
+                fallback = [
+                    (cx, cy + size),
+                    (cx - size, cy - size),
+                    (cx + size, cy - size),
+                ]
+                ax.add_patch(
+                    Polygon(
+                        fallback,
+                        closed=True,
+                        facecolor="#dddddd",
+                        edgecolor="#4a423c",
+                        linewidth=0.6,
+                        zorder=5,
+                    )
                 )
-                ax.add_patch(kernel)
-                stalk = Rectangle(
-                    (cx - size * 0.15, cy - size * 1.4),
-                    size * 0.3,
-                    size * 0.7,
-                    facecolor="#4a423c",
-                    edgecolor="#4a423c",
-                    linewidth=0.0,
-                )
-                ax.add_patch(stalk)
-                continue
-            ax.add_patch(patch)
 
     for idx, name in enumerate(territory_names):
         x, y = territory_positions[name]
