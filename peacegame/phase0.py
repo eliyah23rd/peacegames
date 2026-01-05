@@ -14,6 +14,17 @@ def _safe_int(x: Any, default: int = 0) -> int:
         return default
 
 
+def _coerce_int(value: Any) -> int | None:
+    """Return int if value is integer-like, else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return None
+
+
 def _clamp_nonneg(n: int) -> int:
     return n if n >= 0 else 0
 
@@ -55,16 +66,23 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
             _log(log_fn, f"Agent action field {key} ignored (not in schema)")
 
     purchase_mils = action.get("purchase_mils")
-    if isinstance(purchase_mils, int) and purchase_mils >= 0:
-        validated["purchase_mils"] = purchase_mils
+    purchase_val = _coerce_int(purchase_mils)
+    if purchase_val is not None and purchase_val >= 0:
+        validated["purchase_mils"] = purchase_val
     elif purchase_mils is not None:
         _log(log_fn, "Agent purchase_mils rejected due to schema")
 
     attacks = action.get("attacks")
-    if isinstance(attacks, dict) and all(
-        isinstance(v, int) and v >= 0 for v in attacks.values()
-    ):
-        validated["attacks"] = attacks
+    if isinstance(attacks, dict):
+        clean_attacks: Dict[str, int] = {}
+        for target, val in attacks.items():
+            coerced = _coerce_int(val)
+            if isinstance(target, str) and coerced is not None and coerced >= 0:
+                clean_attacks[target] = coerced
+        if len(clean_attacks) == len(attacks):
+            validated["attacks"] = clean_attacks
+        else:
+            _log(log_fn, "Agent attacks rejected due to schema")
     elif attacks is not None:
         _log(log_fn, "Agent attacks rejected due to schema")
 
@@ -78,10 +96,16 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         _log(log_fn, "Agent cede_territories rejected due to schema")
 
     money_grants = action.get("money_grants")
-    if isinstance(money_grants, dict) and all(
-        isinstance(v, int) and v >= 0 for v in money_grants.values()
-    ):
-        validated["money_grants"] = money_grants
+    if isinstance(money_grants, dict):
+        clean_grants: Dict[str, int] = {}
+        for recipient, val in money_grants.items():
+            coerced = _coerce_int(val)
+            if isinstance(recipient, str) and coerced is not None and coerced >= 0:
+                clean_grants[recipient] = coerced
+        if len(clean_grants) == len(money_grants):
+            validated["money_grants"] = clean_grants
+        else:
+            _log(log_fn, "Agent money_grants rejected due to schema")
     elif money_grants is not None:
         _log(log_fn, "Agent money_grants rejected due to schema")
 
@@ -112,8 +136,9 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         _log(log_fn, "Agent reasoning rejected due to schema")
 
     disband_mils = action.get("disband_mils")
-    if isinstance(disband_mils, int) and disband_mils >= 0:
-        validated["disband_mils"] = disband_mils
+    disband_val = _coerce_int(disband_mils)
+    if disband_val is not None and disband_val >= 0:
+        validated["disband_mils"] = disband_val
     elif disband_mils is not None:
         _log(log_fn, "Agent disband_mils rejected due to schema")
 

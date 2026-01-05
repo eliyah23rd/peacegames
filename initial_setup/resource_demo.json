@@ -1,0 +1,33 @@
+{
+  "name": "resource_demo",
+  "num_turns": 5,
+  "model": "gpt-5-nano",
+  "territory_seed": 42,
+  "resource_seed": 42,
+  "resource_richness": 0.4,
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 10,
+    "c_mil_upkeep_price": 1,
+    "c_damage_per_attack_mil": 5,
+    "c_defense_destroy_factor": 2,
+    "c_trade_factor": 1.5,
+    "c_min_energy": 1,
+    "c_min_minerals": 1,
+    "c_min_food": 1
+  },
+  "initial_state": {
+    "agent_territories": {
+      "John": ["Auron", "Caldera", "Driftwood"],
+      "Ruth": ["Everspring", "Frostvale", "Gildhaven"]
+    },
+    "agent_mils": {
+      "John": 0,
+      "Ruth": 0
+    },
+    "agent_welfare": {
+      "John": 0,
+      "Ruth": 0
+    }
+  }
+}
