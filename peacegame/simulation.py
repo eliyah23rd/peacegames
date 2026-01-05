@@ -189,7 +189,9 @@ class SimulationEngine:
         )
         self.log(f"Initial mils: {sorted(agent_mils.items())}")
         self.log(f"Initial welfare: {sorted(agent_welfare.items())}")
-        self.log(f"Constants: {constants}")
+        self.log("Constants:")
+        for key in sorted(constants.keys()):
+            self.log(f"  {key}: {constants[key]}")
         if prompt_modifiers is not None:
             self.log(f"Prompt modifiers: {prompt_modifiers}")
 

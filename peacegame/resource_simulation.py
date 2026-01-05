@@ -192,7 +192,9 @@ class ResourceSimulationEngine:
         )
         self.log(f"Initial mils: {sorted(agent_mils.items())}")
         self.log(f"Initial welfare: {sorted(agent_welfare.items())}")
-        self.log(f"Constants: {constants}")
+        self.log("Constants:")
+        for key in sorted(constants.keys()):
+            self.log(f"  {key}: {constants[key]}")
         if prompt_modifiers is not None:
             self.log(f"Prompt modifiers: {prompt_modifiers}")
 
@@ -339,6 +341,8 @@ class ResourceSimulationEngine:
             max_summary_len=max_summary_len,
             log_fn=self.log,
         )
+
+        self._log_messages(d_messages_sent)
 
         d_resource_grants = _parse_resource_grants(
             actions,
@@ -500,6 +504,7 @@ class ResourceSimulationEngine:
             d_aggressor_report=d_aggressor_report,
             legal_inbound_cessions=legal_inbound_after,
             legal_outbound_cessions=legal_outbound_after,
+            constants=constants,
         )
 
         self.log("Previous turn agent reports:")
@@ -535,6 +540,7 @@ class ResourceSimulationEngine:
         d_aggressor_report: Dict[str, Dict[str, int]],
         legal_inbound_cessions: Dict[str, Dict[str, List[str]]],
         legal_outbound_cessions: Dict[str, Dict[str, List[str]]],
+        constants: Mapping[str, Any],
     ) -> Dict[str, str]:
         reports: Dict[str, str] = {}
         for agent in sorted(d_gross_income.keys()):
@@ -556,8 +562,26 @@ class ResourceSimulationEngine:
             legal_inbound = legal_inbound_cessions.get(agent, {})
             legal_outbound = legal_outbound_cessions.get(agent, {})
 
+            terr_count = max(len(self.agent_territories.get(agent, set())), 1)
+            min_energy = float(constants.get("c_min_energy", 1))
+            min_minerals = float(constants.get("c_min_minerals", 1))
+            min_food = float(constants.get("c_min_food", 1))
+            energy_total = res_totals.get("energy", 0)
+            minerals_total = res_totals.get("minerals", 0)
+            food_total = res_totals.get("food", 0)
+
             lines = [
                 f"Income: gross={gross}, effective={effective}, damage={damage}",
+                "Effective income formula: gross * energy_ratio * minerals_ratio * food_ratio",
+                (
+                    "Resource ratio details: "
+                    f"energy_ratio=min(1, {energy_total}/({terr_count}*{min_energy}))="
+                    f"{res_ratios.get('energy', 0)}; "
+                    f"minerals_ratio=min(1, {minerals_total}/({terr_count}*{min_minerals}))="
+                    f"{res_ratios.get('minerals', 0)}; "
+                    f"food_ratio=min(1, {food_total}/({terr_count}*{min_food}))="
+                    f"{res_ratios.get('food', 0)}"
+                ),
                 f"Resources: totals={res_totals}, ratios={res_ratios}",
                 f"Costs: upkeep={upkeep}, purchases={purchased}",
                 f"Army: lost={lost}, disbanded={disbanded}",
@@ -570,6 +594,18 @@ class ResourceSimulationEngine:
             ]
             reports[agent] = "\n".join(lines)
         return reports
+
+    def _log_messages(self, d_messages_sent: Dict[str, Dict[str, str]]) -> None:
+        if not d_messages_sent:
+            self.log("Messages sent: none")
+            return
+        self.log("Messages sent:")
+        for sender in sorted(d_messages_sent.keys()):
+            msgs = d_messages_sent.get(sender, {})
+            if not msgs:
+                continue
+            for recipient, message in msgs.items():
+                self.log(f"  {sender} -> {recipient}: {message}")
 
     def _turns_left(self, turn: int) -> int | None:
         if self.total_turns is None:
