@@ -1,4 +1,5 @@
 import json
+import random
 import unittest
 
 from peacegame.resource_simulation import (
@@ -23,13 +24,49 @@ class ScriptedAgent:
 class ResourceSimulationTests(unittest.TestCase):
     def test_generate_territory_resources_ranges(self) -> None:
         terrs = ["T1", "T2", "T3", "T4"]
-        resources = generate_territory_resources(terrs, resource_richness=0.3, seed=1)
+        graph = {t: set() for t in terrs}
+        graph["T1"].add("T2")
+        graph["T2"].update({"T1", "T3"})
+        graph["T3"].update({"T2", "T4"})
+        graph["T4"].add("T3")
+        resources = generate_territory_resources(
+            terrs,
+            graph,
+            peaks_per_resource={"energy": 1, "minerals": 1, "food": 1},
+            max_value=3,
+            seed=1,
+        )
         self.assertEqual(set(resources.keys()), set(terrs))
         for terr, res in resources.items():
-            self.assertTrue(1 <= len(res) <= 2, terr)
             for rtype, qty in res.items():
                 self.assertIn(rtype, RESOURCE_TYPES)
-                self.assertIn(qty, (1, 2, 3))
+                self.assertTrue(0 < qty <= 3)
+
+    def test_generate_territory_resources_peak_decay(self) -> None:
+        terrs = ["A", "B", "C", "D"]
+        graph = {"A": {"B"}, "B": {"A", "C"}, "C": {"B", "D"}, "D": {"C"}}
+        seed = 5
+        rng = random.Random(seed)
+        peak = rng.sample(terrs, 1)[0]
+        dist = {"A": 0, "B": 1, "C": 2, "D": 3}
+        # distance from peak along line
+        if peak == "B":
+            dist = {"A": 1, "B": 0, "C": 1, "D": 2}
+        elif peak == "C":
+            dist = {"A": 2, "B": 1, "C": 0, "D": 1}
+        elif peak == "D":
+            dist = {"A": 3, "B": 2, "C": 1, "D": 0}
+        resources = generate_territory_resources(
+            terrs,
+            graph,
+            peaks_per_resource={"energy": 1},
+            max_value=3,
+            seed=seed,
+        )
+        for terr in terrs:
+            expected = max(0, 3 - dist[terr])
+            actual = resources[terr].get("energy", 0)
+            self.assertEqual(actual, expected)
 
     def test_resource_ratios_and_multiplier(self) -> None:
         totals = {
@@ -65,7 +102,8 @@ class ResourceSimulationTests(unittest.TestCase):
             territory_seed=1,
             resource_seed=1,
             use_generated_territories=False,
-            resource_richness=0.5,
+            resource_peaks={"energy": 1, "minerals": 1, "food": 1},
+            resource_peak_max=3,
         )
         engine.territory_resources = {
             "T1": {"energy": 1, "minerals": 1, "food": 1},
@@ -126,7 +164,8 @@ class ResourceSimulationTests(unittest.TestCase):
             territory_seed=2,
             resource_seed=2,
             use_generated_territories=False,
-            resource_richness=0.2,
+            resource_peaks={"energy": 1, "minerals": 1, "food": 1},
+            resource_peak_max=3,
         )
         engine.territory_resources = {
             "T1": {"energy": 1, "minerals": 1, "food": 1},

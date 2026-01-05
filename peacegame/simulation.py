@@ -164,6 +164,7 @@ class SimulationEngine:
         self.territory_positions: Dict[str, tuple[int, int]] = {}
         self.territory_names: List[str] = []
         self.per_turn_territory_owners: List[List[str | None]] = []
+        self.capital_territories: Dict[str, str] = {}
 
     def close(self) -> None:
         self._log_fp.close()
@@ -243,13 +244,21 @@ class SimulationEngine:
         )
         self.territory_names = sorted(self.territory_graph.keys())
         if use_generated_territories or all(len(terrs) == 0 for terrs in self.agent_territories.values()):
-            assigned = assign_territories_round_robin(
+            assigned, capitals = assign_territories_round_robin(
                 self.agent_names,
                 self.territory_graph,
                 self.territory_positions,
                 seed=territory_seed,
+                return_capitals=True,
             )
             self.agent_territories = {k: set(v) for k, v in assigned.items()}
+            self.capital_territories = dict(capitals)
+        else:
+            self.capital_territories = {
+                agent: sorted(list(terrs))[0]
+                for agent, terrs in self.agent_territories.items()
+                if terrs
+            }
 
     def setup_round(self, *, total_turns: int) -> None:
         self.total_turns = int(total_turns)
@@ -276,6 +285,7 @@ class SimulationEngine:
         legal_inbound, legal_outbound = compute_legal_cession_lists(
             agent_territories,
             self.territory_graph,
+            capitals=self.capital_territories,
         )
         inputs = assemble_agent_inputs(
             turn=turn,
@@ -457,6 +467,8 @@ class SimulationEngine:
                         receiver,
                         agent_territories=agent_territories,
                         graph=self.territory_graph,
+                        giver=giver,
+                        capitals=self.capital_territories,
                     ):
                         self.log(
                             f"Illegal cession rejected: {giver} -> {receiver} for {tid}"
@@ -492,6 +504,7 @@ class SimulationEngine:
         legal_inbound_after, legal_outbound_after = compute_legal_cession_lists(
             agent_territories,
             self.territory_graph,
+            capitals=self.capital_territories,
         )
         self.last_agent_reports = self._build_agent_reports(
             d_gross_income=d_gross_income,

@@ -161,7 +161,8 @@ def main() -> int:
                 use_generated_territories=True,
                 territory_seed=None,
                 resource_seed=None,
-                resource_richness=setup.get("resource_richness", 0.4),
+                resource_peaks=setup.get("resource_peaks"),
+                resource_peak_max=setup.get("resource_peak_max", 3),
             )
         else:
             engine.setup_state(

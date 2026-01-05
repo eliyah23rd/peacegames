@@ -163,6 +163,7 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
             territory_names = payload.get("territory_names", [])
             territory_positions = payload.get("territory_positions", {})
             territory_owners = payload.get("territory_owners", [])
+            territory_resources = payload.get("territory_resources", {})
             agents = payload.get("agents", [])
             if not territory_names or not territory_owners:
                 self.send_error(HTTPStatus.BAD_REQUEST, "No territory data")
@@ -196,6 +197,7 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
                 positions,
                 owners,
                 owner_colors,
+                territory_resources=territory_resources,
             )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "image/png")

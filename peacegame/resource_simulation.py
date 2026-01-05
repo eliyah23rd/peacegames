@@ -20,29 +20,50 @@ from .territory_graph import (
 RESOURCE_TYPES = ("energy", "minerals", "food")
 
 
+def _multi_source_distances(
+    graph: Dict[str, Set[str]],
+    sources: List[str],
+) -> Dict[str, int]:
+    distances: Dict[str, int] = {s: 0 for s in sources}
+    queue = list(sources)
+    head = 0
+    while head < len(queue):
+        node = queue[head]
+        head += 1
+        for neighbor in graph.get(node, set()):
+            if neighbor in distances:
+                continue
+            distances[neighbor] = distances[node] + 1
+            queue.append(neighbor)
+    return distances
+
+
 def generate_territory_resources(
     territory_names: List[str],
+    graph: Dict[str, Set[str]],
     *,
-    resource_richness: float = 0.4,
+    peaks_per_resource: Mapping[str, int] | None = None,
+    max_value: int = 3,
     seed: int | None = None,
 ) -> Dict[str, Dict[str, int]]:
     rng = random.Random(seed)
-    richness = max(0.0, min(1.0, resource_richness))
-    p_one = max(0.2, min(0.8, 0.8 - 0.6 * richness))
+    resources: Dict[str, Dict[str, int]] = {t: {} for t in territory_names}
+    if not territory_names:
+        return resources
 
-    resources: Dict[str, Dict[str, int]] = {}
-    for terr in territory_names:
-        k = 1 if rng.random() < p_one else 2
-        types = rng.sample(list(RESOURCE_TYPES), k)
-        if richness < 0.5:
-            weights = [0.6, 0.3, 0.1]
-        else:
-            weights = [0.3, 0.4, 0.3]
-        quantities = [1, 2, 3]
-        terr_res: Dict[str, int] = {}
-        for t in types:
-            terr_res[t] = rng.choices(quantities, weights=weights, k=1)[0]
-        resources[terr] = terr_res
+    peaks = dict(peaks_per_resource or {})
+    for rtype in RESOURCE_TYPES:
+        count = int(peaks.get(rtype, 1))
+        if count <= 0:
+            continue
+        count = min(count, len(territory_names))
+        peak_nodes = rng.sample(territory_names, count)
+        distances = _multi_source_distances(graph, peak_nodes)
+        for terr in territory_names:
+            dist = distances.get(terr, max_value + 1)
+            value = max(0, max_value - dist)
+            if value > 0:
+                resources[terr][rtype] = value
     return resources
 
 
@@ -171,6 +192,7 @@ class ResourceSimulationEngine:
         self.turns_seen: List[int] = []
         self.metric_keys: List[str] = []
         self.per_turn_territory_owners: List[List[str | None]] = []
+        self.capital_territories: Dict[str, str] = {}
 
     def close(self) -> None:
         self._log_fp.close()
@@ -214,7 +236,8 @@ class ResourceSimulationEngine:
         territory_seed: int | None = 42,
         resource_seed: int | None = 42,
         use_generated_territories: bool = False,
-        resource_richness: float = 0.4,
+        resource_peaks: Mapping[str, int] | None = None,
+        resource_peak_max: int = 3,
     ) -> None:
         self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
         self.agent_mils = {k: int(v) for k, v in agent_mils.items()}
@@ -253,17 +276,27 @@ class ResourceSimulationEngine:
         )
         self.territory_names = sorted(self.territory_graph.keys())
         if use_generated_territories or all(len(terrs) == 0 for terrs in self.agent_territories.values()):
-            assigned = assign_territories_round_robin(
+            assigned, capitals = assign_territories_round_robin(
                 self.agent_names,
                 self.territory_graph,
                 self.territory_positions,
                 seed=territory_seed,
+                return_capitals=True,
             )
             self.agent_territories = {k: set(v) for k, v in assigned.items()}
+            self.capital_territories = dict(capitals)
+        else:
+            self.capital_territories = {
+                agent: sorted(list(terrs))[0]
+                for agent, terrs in self.agent_territories.items()
+                if terrs
+            }
 
         self.territory_resources = generate_territory_resources(
             self.territory_names,
-            resource_richness=resource_richness,
+            self.territory_graph,
+            peaks_per_resource=resource_peaks,
+            max_value=resource_peak_max,
             seed=resource_seed,
         )
         self.pending_resource_grants = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
@@ -299,6 +332,7 @@ class ResourceSimulationEngine:
         legal_inbound, legal_outbound = compute_legal_cession_lists(
             agent_territories,
             self.territory_graph,
+            capitals=self.capital_territories,
         )
         resource_totals = _resource_totals(
             agent_territories, self.territory_resources, self.pending_resource_grants
@@ -457,6 +491,8 @@ class ResourceSimulationEngine:
                         receiver,
                         agent_territories=agent_territories,
                         graph=self.territory_graph,
+                        giver=giver,
+                        capitals=self.capital_territories,
                     ):
                         continue
                     agent_territories[giver].remove(tid)
@@ -514,6 +550,7 @@ class ResourceSimulationEngine:
         legal_inbound_after, legal_outbound_after = compute_legal_cession_lists(
             agent_territories,
             self.territory_graph,
+            capitals=self.capital_territories,
         )
         self.last_agent_reports = self._build_agent_reports(
             d_gross_income=d_gross_income,
@@ -893,6 +930,7 @@ class ResourceSimulationEngine:
                 for name in self.territory_names
             },
             "territory_owners": self.per_turn_territory_owners,
+            "territory_resources": self.territory_resources,
         }
         out_dir = Path("round_data")
         log_stem = Path(self.log_path).stem

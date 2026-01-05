@@ -96,7 +96,8 @@ def main() -> int:
         use_generated_territories=True,
         territory_seed=setup.get("territory_seed"),
         resource_seed=setup.get("resource_seed"),
-        resource_richness=setup.get("resource_richness", 0.4),
+        resource_peaks=setup.get("resource_peaks"),
+        resource_peak_max=setup.get("resource_peak_max", 3),
     )
     engine.setup_round(total_turns=num_turns)
 

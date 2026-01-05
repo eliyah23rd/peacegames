@@ -37,7 +37,7 @@
         "state": {
           "agent_mils": {"Ember": 0, "Fjord": 0},
           "agent_welfare": {"Ember": 20, "Fjord": 16},
-          "agent_territories": {"Ember": ["Highmoor"], "Fjord": ["Gildhaven", "Ironridge"]}
+          "agent_territories": {"Ember": ["Gildhaven", "Highmoor"], "Fjord": ["Ironridge"]}
         }
       }
     }

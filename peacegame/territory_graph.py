@@ -36,7 +36,8 @@ def assign_territories_round_robin(
     positions: Dict[str, Coord],
     *,
     seed: int | None = None,
-) -> Dict[str, Set[str]]:
+    return_capitals: bool = False,
+) -> Dict[str, Set[str]] | tuple[Dict[str, Set[str]], Dict[str, str]]:
     """Assign territories by farthest-first seeds, then round-robin adjacency growth."""
     rng = random.Random(seed)
     territories = list(graph.keys())
@@ -64,8 +65,10 @@ def assign_territories_round_robin(
         seeds.append(best)
         unassigned.remove(best)
 
+    capitals: Dict[str, str] = {}
     for agent, terr in zip(agent_names, seeds):
         assigned[agent].add(terr)
+        capitals[agent] = terr
 
     # Round-robin growth by adjacency.
     stalled = 0
@@ -97,6 +100,8 @@ def assign_territories_round_robin(
         assigned[agent].add(best)
         unassigned.remove(best)
 
+    if return_capitals:
+        return assigned, capitals
     return assigned
 
 
@@ -106,7 +111,12 @@ def is_legal_cession(
     *,
     agent_territories: Dict[str, Set[str]],
     graph: Dict[str, Set[str]],
+    giver: str | None = None,
+    capitals: Dict[str, str] | None = None,
 ) -> bool:
+    if giver is not None and capitals is not None:
+        if capitals.get(giver) == territory:
+            return False
     neighbors = graph.get(territory)
     if not neighbors:
         return False
@@ -117,6 +127,8 @@ def is_legal_cession(
 def compute_legal_cession_lists(
     agent_territories: Dict[str, Set[str]],
     graph: Dict[str, Set[str]],
+    *,
+    capitals: Dict[str, str] | None = None,
 ) -> tuple[Dict[str, Dict[str, List[str]]], Dict[str, Dict[str, List[str]]]]:
     inbound: Dict[str, Dict[str, List[str]]] = {a: {} for a in agent_territories.keys()}
     outbound: Dict[str, Dict[str, List[str]]] = {a: {} for a in agent_territories.keys()}
@@ -133,6 +145,8 @@ def compute_legal_cession_lists(
                     receiver,
                     agent_territories=agent_territories,
                     graph=graph,
+                    giver=giver,
+                    capitals=capitals,
                 )
             ]
             if legal:
@@ -270,6 +284,7 @@ def render_ownership_png(
     territory_owners: List[str | None],
     owner_colors: Dict[str, str],
     *,
+    territory_resources: Dict[str, Dict[str, int]] | None = None,
     out_path: Path | None = None,
 ) -> bytes:
     import os
@@ -277,6 +292,7 @@ def render_ownership_png(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/mpl")
     import io
     import matplotlib.pyplot as plt
+    from matplotlib.patches import Circle, Polygon, Rectangle
     from matplotlib.path import Path
     from matplotlib.patches import PathPatch
 
@@ -328,6 +344,61 @@ def render_ownership_png(
             return pts
         return list(reversed(pts))
 
+    resource_colors = {
+        "energy": "#f5c04d",
+        "minerals": "#9aa4ad",
+        "food": "#6fbf5b",
+    }
+
+    def _draw_resource_icons(name: str, x: float, y: float) -> None:
+        if not territory_resources:
+            return
+        res = territory_resources.get(name, {})
+        if not res:
+            return
+        size = 0.12
+        spacing = 0.18
+        order = ["energy", "minerals", "food"]
+        start_x = x + 0.18
+        start_y = y + 0.78
+        icons = []
+        for rtype in order:
+            count = int(res.get(rtype, 0))
+            if count <= 0:
+                continue
+            icons.extend([rtype] * count)
+        for idx_icon, rtype in enumerate(icons):
+            row = idx_icon // 3
+            col = idx_icon % 3
+            cx = start_x + col * spacing
+            cy = start_y - row * spacing
+            color = resource_colors.get(rtype, "#dddddd")
+            if rtype == "energy":
+                points = [
+                    (cx, cy + size),
+                    (cx - size, cy - size),
+                    (cx + size, cy - size),
+                ]
+                patch = Polygon(points, closed=True, facecolor=color, edgecolor="#4a423c", linewidth=0.6)
+            elif rtype == "minerals":
+                patch = Rectangle(
+                    (cx - size, cy - size),
+                    2 * size,
+                    2 * size,
+                    facecolor=color,
+                    edgecolor="#4a423c",
+                    linewidth=0.6,
+                )
+            else:
+                patch = Circle(
+                    (cx, cy),
+                    radius=size,
+                    facecolor=color,
+                    edgecolor="#4a423c",
+                    linewidth=0.6,
+                )
+            ax.add_patch(patch)
+
     for idx, name in enumerate(territory_names):
         x, y = territory_positions[name]
         edges = [
@@ -357,6 +428,7 @@ def render_ownership_png(
             linewidth=1.2,
         )
         ax.add_patch(patch)
+        _draw_resource_icons(name, x, y)
         if len(territory_names) <= 40:
             ax.text(
                 x + 0.5,

@@ -54,6 +54,22 @@ class TerritoryGraphTests(unittest.TestCase):
         self.assertEqual(set(inbound.keys()), set(agents))
         self.assertEqual(set(outbound.keys()), set(agents))
 
+    def test_capital_not_legal_for_cession(self) -> None:
+        names = ["Auron", "Bastion", "Caldera", "Driftwood", "Everspring"]
+        agents = ["Alpha", "Beta"]
+        graph, positions = build_territory_graph(names, seed=9)
+        assigned, capitals = assign_territories_round_robin(
+            agents, graph, positions, seed=9, return_capitals=True
+        )
+        inbound, outbound = compute_legal_cession_lists(
+            assigned, graph, capitals=capitals
+        )
+        for agent, capital in capitals.items():
+            if not capital:
+                continue
+            for receiver, terrs in outbound.get(agent, {}).items():
+                self.assertNotIn(capital, terrs)
+
 
 if __name__ == "__main__":
     unittest.main()
