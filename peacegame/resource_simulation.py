@@ -167,6 +167,10 @@ class ResourceSimulationEngine:
         self.territory_resources: Dict[str, Dict[str, int]] = {}
         self.pending_resource_grants: Dict[str, Dict[str, int]] = {}
         self.pending_money_grants: Dict[str, int] = {}
+        self.per_turn_metrics: Dict[str, Dict[str, List[float]]] = {}
+        self.turns_seen: List[int] = []
+        self.metric_keys: List[str] = []
+        self.per_turn_territory_owners: List[List[str | None]] = []
 
     def close(self) -> None:
         self._log_fp.close()
@@ -264,6 +268,9 @@ class ResourceSimulationEngine:
         )
         self.pending_resource_grants = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
         self.pending_money_grants = {a: 0 for a in self.agent_names}
+        self.per_turn_metrics = {}
+        self.turns_seen = []
+        self.per_turn_territory_owners = []
 
     def setup_round(self, *, total_turns: int) -> None:
         self.total_turns = int(total_turns)
@@ -283,6 +290,11 @@ class ResourceSimulationEngine:
         agent_territories = self.agent_territories
         agent_mils = self.agent_mils
         agent_welfare = self.agent_welfare
+        before_territories = {a: set(t) for a, t in agent_territories.items()}
+        money_grants_received = dict(self.pending_money_grants)
+        resource_grants_received = {
+            a: dict(self.pending_resource_grants.get(a, {})) for a in self.agent_names
+        }
 
         legal_inbound, legal_outbound = compute_legal_cession_lists(
             agent_territories,
@@ -450,8 +462,21 @@ class ResourceSimulationEngine:
                     agent_territories[giver].remove(tid)
                     agent_territories.setdefault(receiver, set()).add(tid)
 
+        ceded_territories: Dict[str, List[str]] = {}
+        received_territories: Dict[str, List[str]] = {}
+        for agent in self.agent_names:
+            before = before_territories.get(agent, set())
+            after = agent_territories.get(agent, set())
+            ceded = sorted(before - after)
+            received = sorted(after - before)
+            if ceded:
+                ceded_territories[agent] = ceded
+            if received:
+                received_territories[agent] = received
+
         # Money grants affect next turn welfare
         next_pending_money = {a: 0 for a in self.agent_names}
+        money_grants_sent = {a: 0 for a in self.agent_names}
         for giver, grants in d_money_grants.items():
             available = d_available_money.get(giver, 0)
             for receiver, amount in grants.items():
@@ -460,14 +485,19 @@ class ResourceSimulationEngine:
                 paid = min(amount, available)
                 available -= paid
                 next_pending_money[receiver] = next_pending_money.get(receiver, 0) + paid
+                money_grants_sent[giver] = money_grants_sent.get(giver, 0) + paid
             d_available_money[giver] = available
 
         # Resource grants affect next turn resources
         next_pending_resources = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
+        resource_grants_sent = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
         for giver, grants in d_resource_grants.items():
             for receiver, res_map in grants.items():
                 for rtype, qty in res_map.items():
                     next_pending_resources[receiver][rtype] += qty
+                    resource_grants_sent[giver][rtype] = (
+                        resource_grants_sent[giver].get(rtype, 0) + qty
+                    )
 
         d_total_welfare_this_turn: Dict[str, int] = {}
         for agent in agent_territories:
@@ -505,12 +535,51 @@ class ResourceSimulationEngine:
             legal_inbound_cessions=legal_inbound_after,
             legal_outbound_cessions=legal_outbound_after,
             constants=constants,
+            money_grants_received=money_grants_received,
+            money_grants_sent=money_grants_sent,
+            resource_grants_received=resource_grants_received,
+            resource_grants_sent=resource_grants_sent,
+            ceded_territories=ceded_territories,
+            received_territories=received_territories,
         )
 
         self.log("Previous turn agent reports:")
         for agent in sorted(self.last_agent_reports.keys()):
             self.log(f"[{agent}]")
             self.log(self.last_agent_reports[agent])
+
+        self.log(f"Turn {turn} welfare: {d_total_welfare_this_turn}")
+        self.log(f"Turn {turn} end mils: {agent_mils}")
+        self.log(f"Turn {turn} end territories: {agent_territories}")
+
+        self._record_metrics(
+            turn=turn,
+            d_total_welfare_this_turn=d_total_welfare_this_turn,
+            agent_welfare=agent_welfare,
+            d_attacking_mils=d_attacking_mils,
+            d_global_attacked=d_global_attacked,
+            agent_mils=agent_mils,
+            d_mils_lost_by_attacker=d_mils_lost_by_attacker,
+            d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            money_grants_sent=money_grants_sent,
+            money_grants_received=money_grants_received,
+            resource_grants_sent=resource_grants_sent,
+            resource_grants_received=resource_grants_received,
+            trade_factor=float(constants["c_trade_factor"]),
+            agent_territories=agent_territories,
+            d_gross_income=d_gross_income,
+            d_effective_income=d_effective_income,
+            d_total_damage_received=d_total_damage_received,
+            d_available_money=d_available_money,
+            d_upkeep_cost=d_upkeep_cost,
+            d_mil_purchased=d_mil_purchased,
+            d_resource_totals=resource_totals,
+            d_resource_ratios=ratios,
+            ceded_territories=ceded_territories,
+            received_territories=received_territories,
+        )
+        if self.total_turns is not None and turn == self.total_turns - 1:
+            self._write_round_data()
 
         return {
             "d_total_welfare_this_turn": d_total_welfare_this_turn,
@@ -541,6 +610,12 @@ class ResourceSimulationEngine:
         legal_inbound_cessions: Dict[str, Dict[str, List[str]]],
         legal_outbound_cessions: Dict[str, Dict[str, List[str]]],
         constants: Mapping[str, Any],
+        money_grants_received: Dict[str, int],
+        money_grants_sent: Dict[str, int],
+        resource_grants_received: Dict[str, Dict[str, int]],
+        resource_grants_sent: Dict[str, Dict[str, int]],
+        ceded_territories: Dict[str, List[str]],
+        received_territories: Dict[str, List[str]],
     ) -> Dict[str, str]:
         reports: Dict[str, str] = {}
         for agent in sorted(d_gross_income.keys()):
@@ -561,6 +636,12 @@ class ResourceSimulationEngine:
             aggressor = d_aggressor_report.get(agent, {})
             legal_inbound = legal_inbound_cessions.get(agent, {})
             legal_outbound = legal_outbound_cessions.get(agent, {})
+            money_received = money_grants_received.get(agent, 0)
+            money_sent = money_grants_sent.get(agent, 0)
+            res_received = resource_grants_received.get(agent, {})
+            res_sent = resource_grants_sent.get(agent, {})
+            terrs_received = received_territories.get(agent, [])
+            terrs_ceded = ceded_territories.get(agent, [])
 
             terr_count = max(len(self.agent_territories.get(agent, set())), 1)
             min_energy = float(constants.get("c_min_energy", 1))
@@ -572,7 +653,6 @@ class ResourceSimulationEngine:
 
             lines = [
                 f"Income: gross={gross}, effective={effective}, damage={damage}",
-                "Effective income formula: gross * energy_ratio * minerals_ratio * food_ratio",
                 (
                     "Resource ratio details: "
                     f"energy_ratio=min(1, {energy_total}/({terr_count}*{min_energy}))="
@@ -582,9 +662,17 @@ class ResourceSimulationEngine:
                     f"food_ratio=min(1, {food_total}/({terr_count}*{min_food}))="
                     f"{res_ratios.get('food', 0)}"
                 ),
+                (
+                    "Effective income formula: "
+                    f"gross({gross}) * energy_ratio({res_ratios.get('energy', 0)}) * "
+                    f"minerals_ratio({res_ratios.get('minerals', 0)}) * "
+                    f"food_ratio({res_ratios.get('food', 0)}) = {effective}"
+                ),
                 f"Resources: totals={res_totals}, ratios={res_ratios}",
                 f"Costs: upkeep={upkeep}, purchases={purchased}",
                 f"Army: lost={lost}, disbanded={disbanded}",
+                f"Grants: money_received={money_received}, money_sent={money_sent}, resources_received={res_received}, resources_sent={res_sent}",
+                f"Cessions: received={terrs_received}, ceded={terrs_ceded}",
                 f"Reasoning (last turn): {reasoning}",
                 f"Keeps word report: {keeps_word}",
                 f"Aggressor report: {aggressor}",
@@ -615,3 +703,200 @@ class ResourceSimulationEngine:
 
     def _ensure_dirs(self) -> None:
         os.makedirs("logs", exist_ok=True)
+
+    def _record_metrics(
+        self,
+        *,
+        turn: int,
+        d_total_welfare_this_turn: Dict[str, int],
+        agent_welfare: Dict[str, int],
+        d_attacking_mils: Dict[str, int],
+        d_global_attacked: Dict[str, Dict[str, int]],
+        agent_mils: Dict[str, int],
+        d_mils_lost_by_attacker: Dict[str, int],
+        d_mils_disbanded_upkeep: Dict[str, int],
+        money_grants_sent: Dict[str, int],
+        money_grants_received: Dict[str, int],
+        resource_grants_sent: Dict[str, Dict[str, int]],
+        resource_grants_received: Dict[str, Dict[str, int]],
+        trade_factor: float,
+        agent_territories: Dict[str, Set[str]],
+        d_gross_income: Dict[str, int],
+        d_effective_income: Dict[str, int],
+        d_total_damage_received: Dict[str, int],
+        d_available_money: Dict[str, int],
+        d_upkeep_cost: Dict[str, int],
+        d_mil_purchased: Dict[str, int],
+        d_resource_totals: Dict[str, Dict[str, int]],
+        d_resource_ratios: Dict[str, Dict[str, float]],
+        ceded_territories: Dict[str, List[str]],
+        received_territories: Dict[str, List[str]],
+    ) -> None:
+        if not self.per_turn_metrics:
+            keys = [
+                "total_welfare",
+                "welfare_this_turn",
+                "attacks",
+                "attacks_received",
+                "army_size",
+                "territories",
+                "mils_destroyed",
+                "mils_disbanded",
+                "trade_sent",
+                "trade_welfare_received",
+                "gross_income",
+                "effective_income",
+                "damage_received",
+                "available_money",
+                "upkeep_cost",
+                "mils_purchased",
+                "money_grants_received",
+                "money_grants_sent",
+                "resource_energy_total",
+                "resource_minerals_total",
+                "resource_food_total",
+                "resource_energy_ratio",
+                "resource_minerals_ratio",
+                "resource_food_ratio",
+                "resource_energy_grants_received",
+                "resource_minerals_grants_received",
+                "resource_food_grants_received",
+                "resource_energy_grants_sent",
+                "resource_minerals_grants_sent",
+                "resource_food_grants_sent",
+                "territories_received",
+                "territories_ceded",
+            ]
+            self.metric_keys = list(keys)
+            self.per_turn_metrics = {k: {a: [] for a in self.agent_names} for k in keys}
+
+        self.turns_seen.append(turn)
+        for agent in self.agent_names:
+            attacks_received = sum(d_global_attacked.get(agent, {}).values())
+            grants_received = money_grants_received.get(agent, 0)
+            res_totals = d_resource_totals.get(agent, {})
+            res_ratios = d_resource_ratios.get(agent, {})
+            res_received = resource_grants_received.get(agent, {})
+            res_sent = resource_grants_sent.get(agent, {})
+
+            self.per_turn_metrics["total_welfare"][agent].append(agent_welfare.get(agent, 0))
+            self.per_turn_metrics["welfare_this_turn"][agent].append(
+                d_total_welfare_this_turn.get(agent, 0)
+            )
+            self.per_turn_metrics["attacks"][agent].append(d_attacking_mils.get(agent, 0))
+            self.per_turn_metrics["attacks_received"][agent].append(attacks_received)
+            self.per_turn_metrics["army_size"][agent].append(agent_mils.get(agent, 0))
+            self.per_turn_metrics["territories"][agent].append(
+                len(agent_territories.get(agent, set()))
+            )
+            self.per_turn_metrics["mils_destroyed"][agent].append(
+                d_mils_lost_by_attacker.get(agent, 0)
+            )
+            self.per_turn_metrics["mils_disbanded"][agent].append(
+                d_mils_disbanded_upkeep.get(agent, 0)
+            )
+            self.per_turn_metrics["trade_sent"][agent].append(money_grants_sent.get(agent, 0))
+            self.per_turn_metrics["trade_welfare_received"][agent].append(
+                grants_received * trade_factor
+            )
+            self.per_turn_metrics["gross_income"][agent].append(d_gross_income.get(agent, 0))
+            self.per_turn_metrics["effective_income"][agent].append(
+                d_effective_income.get(agent, 0)
+            )
+            self.per_turn_metrics["damage_received"][agent].append(
+                d_total_damage_received.get(agent, 0)
+            )
+            self.per_turn_metrics["available_money"][agent].append(
+                d_available_money.get(agent, 0)
+            )
+            self.per_turn_metrics["upkeep_cost"][agent].append(d_upkeep_cost.get(agent, 0))
+            self.per_turn_metrics["mils_purchased"][agent].append(
+                d_mil_purchased.get(agent, 0)
+            )
+            self.per_turn_metrics["money_grants_received"][agent].append(grants_received)
+            self.per_turn_metrics["money_grants_sent"][agent].append(
+                money_grants_sent.get(agent, 0)
+            )
+            self.per_turn_metrics["resource_energy_total"][agent].append(
+                res_totals.get("energy", 0)
+            )
+            self.per_turn_metrics["resource_minerals_total"][agent].append(
+                res_totals.get("minerals", 0)
+            )
+            self.per_turn_metrics["resource_food_total"][agent].append(
+                res_totals.get("food", 0)
+            )
+            self.per_turn_metrics["resource_energy_ratio"][agent].append(
+                res_ratios.get("energy", 0)
+            )
+            self.per_turn_metrics["resource_minerals_ratio"][agent].append(
+                res_ratios.get("minerals", 0)
+            )
+            self.per_turn_metrics["resource_food_ratio"][agent].append(
+                res_ratios.get("food", 0)
+            )
+            self.per_turn_metrics["resource_energy_grants_received"][agent].append(
+                res_received.get("energy", 0)
+            )
+            self.per_turn_metrics["resource_minerals_grants_received"][agent].append(
+                res_received.get("minerals", 0)
+            )
+            self.per_turn_metrics["resource_food_grants_received"][agent].append(
+                res_received.get("food", 0)
+            )
+            self.per_turn_metrics["resource_energy_grants_sent"][agent].append(
+                res_sent.get("energy", 0)
+            )
+            self.per_turn_metrics["resource_minerals_grants_sent"][agent].append(
+                res_sent.get("minerals", 0)
+            )
+            self.per_turn_metrics["resource_food_grants_sent"][agent].append(
+                res_sent.get("food", 0)
+            )
+            self.per_turn_metrics["territories_received"][agent].append(
+                len(received_territories.get(agent, []))
+            )
+            self.per_turn_metrics["territories_ceded"][agent].append(
+                len(ceded_territories.get(agent, []))
+            )
+
+        owner_by_territory: Dict[str, str] = {}
+        for agent, terrs in agent_territories.items():
+            for terr in terrs:
+                owner_by_territory[terr] = agent
+        owners = [owner_by_territory.get(name) for name in self.territory_names]
+        self.per_turn_territory_owners.append(owners)
+
+    def _write_round_data(self) -> None:
+        if not self.per_turn_metrics or not self.turns_seen:
+            return
+        ledger_vars = self.metric_keys or list(self.per_turn_metrics.keys())
+        data: List[List[List[float]]] = []
+        for agent in self.agent_names:
+            agent_rows: List[List[float]] = []
+            for idx, _turn in enumerate(self.turns_seen):
+                row = []
+                for key in ledger_vars:
+                    values = self.per_turn_metrics.get(key, {}).get(agent, [])
+                    row.append(values[idx] if idx < len(values) else 0)
+                agent_rows.append(row)
+            data.append(agent_rows)
+
+        payload = {
+            "agents": self.agent_names,
+            "turns": self.turns_seen,
+            "ledger_vars": ledger_vars,
+            "data": data,
+            "territory_names": self.territory_names,
+            "territory_positions": {
+                name: list(self.territory_positions.get(name, (0, 0)))
+                for name in self.territory_names
+            },
+            "territory_owners": self.per_turn_territory_owners,
+        }
+        out_dir = Path("round_data")
+        log_stem = Path(self.log_path).stem
+        out_path = out_dir / f"{log_stem}.json"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)

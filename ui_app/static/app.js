@@ -23,6 +23,7 @@ const metricSelect = document.getElementById("metricSelect");
 const chartCanvas = document.getElementById("chartCanvas");
 const chartTitle = document.getElementById("chartTitle");
 const legend = document.getElementById("legend");
+const allMetricsGrid = document.getElementById("allMetricsGrid");
 const turnViewBtn = document.getElementById("turnViewBtn");
 const mapViewBtn = document.getElementById("mapViewBtn");
 const timelineView = document.getElementById("timelineView");
@@ -103,6 +104,10 @@ function populateMetrics() {
   if (!state.data) return;
   metricSelect.innerHTML = "";
   const vars = state.data.ledger_vars || [];
+  const allOpt = document.createElement("option");
+  allOpt.value = "__all__";
+  allOpt.textContent = "all metrics";
+  metricSelect.appendChild(allOpt);
   vars.forEach((name) => {
     const opt = document.createElement("option");
     opt.value = name;
@@ -123,7 +128,16 @@ function getMetricIndex(metric) {
 
 function renderChart() {
   if (!state.data || !state.currentMetric) return;
+  if (state.currentMetric === "__all__") {
+    chartTitle.textContent = "All metrics";
+    chartCanvas.classList.add("hidden");
+    allMetricsGrid.classList.remove("hidden");
+    renderAllMetrics();
+    return;
+  }
   const ctx = chartCanvas.getContext("2d");
+  chartCanvas.classList.remove("hidden");
+  allMetricsGrid.classList.add("hidden");
   ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
 
   const { agents, turns, data } = state.data;
@@ -195,6 +209,68 @@ function renderChart() {
   });
 
   chartTitle.textContent = state.currentMetric.replace(/_/g, " ");
+}
+
+function renderAllMetrics() {
+  if (!state.data) return;
+  allMetricsGrid.innerHTML = "";
+  const { agents, turns, ledger_vars, data } = state.data;
+  ledger_vars.forEach((metric, metricIdx) => {
+    const card = document.createElement("div");
+    card.className = "metric-card";
+    const title = document.createElement("h3");
+    title.textContent = metric.replace(/_/g, " ");
+    const canvas = document.createElement("canvas");
+    canvas.width = 240;
+    canvas.height = 140;
+    card.appendChild(title);
+    card.appendChild(canvas);
+    allMetricsGrid.appendChild(card);
+    drawMiniChart(canvas, turns, agents, data, metricIdx);
+  });
+}
+
+function drawMiniChart(canvas, turns, agents, data, metricIdx) {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const values = data.map((agentRows) => agentRows.map((row) => row[metricIdx]));
+  const allVals = values.flat();
+  const minVal = Math.min(...allVals);
+  const maxVal = Math.max(...allVals);
+  const padding = 18;
+  const width = canvas.width - padding * 2;
+  const height = canvas.height - padding * 2;
+
+  const yScale = (val) => {
+    if (maxVal === minVal) return padding + height / 2;
+    return padding + height - ((val - minVal) / (maxVal - minVal)) * height;
+  };
+  const xScale = (idx) => {
+    if (turns.length <= 1) return padding + width / 2;
+    return padding + (idx / (turns.length - 1)) * width;
+  };
+
+  ctx.strokeStyle = "#eadfce";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding, padding);
+  ctx.lineTo(padding, padding + height);
+  ctx.lineTo(padding + width, padding + height);
+  ctx.stroke();
+
+  agents.forEach((agent, agentIdx) => {
+    const series = values[agentIdx] || [];
+    ctx.strokeStyle = palette[agentIdx % palette.length];
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    series.forEach((val, idx) => {
+      const x = xScale(idx);
+      const y = yScale(val);
+      if (idx === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
 }
 
 function renderTurnTable() {
