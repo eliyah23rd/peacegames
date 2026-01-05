@@ -13,6 +13,7 @@ def main() -> int:
     cmds = [
         [sys.executable, "-m", "tests.run_phase0_tests"],
         [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"],
+        [sys.executable, "ui_app/smoke_test.py"],
     ]
     for cmd in cmds:
         code = _run(cmd)
