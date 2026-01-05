@@ -294,7 +294,7 @@ def render_ownership_png(
     import matplotlib.image as mpimg
     import matplotlib.pyplot as plt
     from matplotlib.patches import Polygon
-    from matplotlib.path import Path
+    from matplotlib.path import Path as MplPath
     from matplotlib.patches import PathPatch
 
     if not territory_names:
@@ -418,7 +418,7 @@ def render_ownership_png(
             codes.extend([Path.CURVE4, Path.CURVE4, Path.CURVE4])
         vertices.append(start)
         codes.append(Path.CLOSEPOLY)
-        path = Path(vertices, codes)
+        path = MplPath(vertices, codes)
         owner = territory_owners[idx] if idx < len(territory_owners) else None
         color = owner_colors.get(owner, "#e5e1dc")
         patch = PathPatch(
