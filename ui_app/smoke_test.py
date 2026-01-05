@@ -4,6 +4,10 @@ import json
 import sys
 from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR.parent) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR.parent))
+
 from peacegame.territory_graph import render_ownership_png
 
 

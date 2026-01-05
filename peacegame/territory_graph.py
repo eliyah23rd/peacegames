@@ -412,12 +412,12 @@ def render_ownership_png(
         codes: List[int] = []
         start = edges[0][0]
         vertices.append(start)
-        codes.append(Path.MOVETO)
+        codes.append(MplPath.MOVETO)
         for edge in edges:
             vertices.extend(edge[1:])
-            codes.extend([Path.CURVE4, Path.CURVE4, Path.CURVE4])
+            codes.extend([MplPath.CURVE4, MplPath.CURVE4, MplPath.CURVE4])
         vertices.append(start)
-        codes.append(Path.CLOSEPOLY)
+        codes.append(MplPath.CLOSEPOLY)
         path = MplPath(vertices, codes)
         owner = territory_owners[idx] if idx < len(territory_owners) else None
         color = owner_colors.get(owner, "#e5e1dc")
