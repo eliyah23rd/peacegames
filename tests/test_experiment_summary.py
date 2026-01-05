@@ -19,6 +19,7 @@ class ExperimentSummaryTests(unittest.TestCase):
             modifiers=["a", "b"],
             round_idx=0,
             rounds=3,
+            mode="base",
         )
         self.assertEqual(
             cmd,

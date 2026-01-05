@@ -41,4 +41,12 @@ The default agent stores only the summary created at the end of the previous tur
 
 Bad actors will not be implemented in the first version of this game, 
 
+Resources & Trade Option
+
+This section discusses a future option for deepening the trading strategy.
+
+There are three resource types: energy, minerals and food. Each territory needs c_min_energy, c_min_minerals and c_min_food. The owning agent has a certain quantity of these resources and divides what they have by the number of territories it has. If a territory has only x% of a resource, it only produces x% of its income for the owner. These 3 multiply, so if an agent has only 50% of each of the resources it needs, they will own only one eighth of the potential income.
+
+Each territory provides a certain quantity of each of the three resources. The agent may grant any resources their territory provides on a per-turn basis to any number of other agents. Presumably the owner of the resources is being compensated or blackmailed in some way.
+
 

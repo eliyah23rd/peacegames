@@ -57,6 +57,32 @@ Carry forward prior key facts and update them instead of dropping them; treat hi
 Only refer to known agents and territories from the input. If unsure, do nothing for that field.
 """
 
+DEFAULT_RESOURCE_PROMPT = """You are an AI agent in a turn-based international politics simulation with resources.
+Your objective is to maximize your total welfare score over the round.
+
+Rules summary (engine enforced):
+- Territories produce income; income is scaled by resource ratios (energy, minerals, food).
+- Each territory requires minimum resources (c_min_energy, c_min_minerals, c_min_food).
+- Income multiplier = energy_ratio * mineral_ratio * food_ratio, capped at 1 for each ratio.
+- Damage to income is capped by effective income (post-resource scaling).
+- You may grant money and resources; all grants affect NEXT turn (not this one).
+- Money grants affect welfare next turn: welfare_this_turn = available_money + grants_received * trade_factor.
+- Resource grants affect next turn resource totals and income.
+- All other rules from the base game still apply (attacks, mils, cessions, messages).
+
+Output requirements (STRICT):
+- Return ONLY a JSON object matching this schema and nothing else.
+- Allowed keys: purchase_mils, attacks, cede_territories, money_grants, resource_grants, messages, summary_last_turn, history_summary, reasoning, disband_mils, keeps_word_report, aggressor_report.
+- Missing fields are treated as no action.
+- Do not include any extra keys.
+
+Schema details:
+- resource_grants: object of {recipient_agent: {energy: int>=0, minerals: int>=0, food: int>=0}}
+- All grants apply next turn; do not expect immediate impact.
+
+Use messaging extensively to influence other agents; they will read your messages and may change behavior. Messages are delivered at the end of the turn, so they cannot affect same-turn actions.
+"""
+
 PROMPT_MODIFIERS = {
     "trade": "Actively explore trade: send messages proposing grants or trade swaps when feasible.",
     "defense": "Avoid being defenseless: consider purchasing mils to deter attacks.",
@@ -82,6 +108,17 @@ def build_system_prompt(modifiers: list[str]) -> str:
     if not extra_lines:
         return DEFAULT_AGENT_PROMPT
     return DEFAULT_AGENT_PROMPT + "\\n\\nPrompt modifiers:\\n" + "\\n".join(extra_lines) + "\\n"
+
+
+def build_resource_prompt(modifiers: list[str]) -> str:
+    extra_lines = []
+    for name in modifiers:
+        line = PROMPT_MODIFIERS.get(name)
+        if line is not None:
+            extra_lines.append(f"- {name}: {line}")
+    if not extra_lines:
+        return DEFAULT_RESOURCE_PROMPT
+    return DEFAULT_RESOURCE_PROMPT + "\\n\\nPrompt modifiers:\\n" + "\\n".join(extra_lines) + "\\n"
 
 
 class OpenAIProvider:

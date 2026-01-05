@@ -46,6 +46,7 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         "disband_mils",
         "keeps_word_report",
         "aggressor_report",
+        "resource_grants",
     }
     validated: Dict[str, Any] = {}
 
@@ -127,6 +128,12 @@ def _validate_action_schema(action: dict, *, log_fn=None) -> dict:
         validated["aggressor_report"] = aggressor_report
     elif aggressor_report is not None:
         _log(log_fn, "Agent aggressor_report rejected due to schema")
+
+    resource_grants = action.get("resource_grants")
+    if isinstance(resource_grants, dict):
+        validated["resource_grants"] = resource_grants
+    elif resource_grants is not None:
+        _log(log_fn, "Agent resource_grants rejected due to schema")
 
     return validated
 

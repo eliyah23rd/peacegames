@@ -7,8 +7,15 @@ import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from peacegame.llm_agent import DummyLLMProvider, LLMDefaultAgent, OpenAIProvider, build_system_prompt
+from peacegame.llm_agent import (
+    DummyLLMProvider,
+    LLMDefaultAgent,
+    OpenAIProvider,
+    build_resource_prompt,
+    build_system_prompt,
+)
 from peacegame.simulation import SimulationEngine
+from peacegame.resource_simulation import ResourceSimulationEngine
 
 
 def _load_json(path: str) -> Dict[str, Any]:
@@ -41,12 +48,14 @@ def _format_round_command(
     modifiers: List[str],
     round_idx: int,
     rounds: int,
+    mode: str,
 ) -> str:
     mods = " ".join(modifiers)
     suffix = f" {mods}" if mods else ""
+    runner = "run_llm_resource_simulation.py" if mode == "resources" else "run_llm_simulation.py"
     return (
         f"Round {round_idx + 1}/{rounds}: "
-        f"python run_llm_simulation.py {setup_path} --model {model}{suffix}"
+        f"python {runner} {setup_path} --model {model}{suffix}"
     )
 
 
@@ -64,6 +73,7 @@ def main() -> int:
     exp_name = cfg.get("name", "experiment")
     model = cfg.get("model", setup.get("model", "gpt-5-nano"))
     shuffle_mods = bool(cfg.get("shuffle_modifiers", True))
+    mode = cfg.get("mode", "base")
 
     constants = setup.get("constants", {})
     initial_state = setup.get("initial_state", {})
@@ -113,6 +123,7 @@ def main() -> int:
                 modifiers=mods_for_round,
                 round_idx=round_idx,
                 rounds=rounds,
+                mode=mode,
             )
         )
 
@@ -121,13 +132,19 @@ def main() -> int:
         for idx, agent_name in enumerate(agent_names):
             mod = mods_for_round[idx] if idx < len(mods_for_round) else ""
             mod_map[agent_name] = mod
-            system_prompt = build_system_prompt([mod]) if mod else build_system_prompt([])
+            if mode == "resources":
+                system_prompt = build_resource_prompt([mod]) if mod else build_resource_prompt([])
+            else:
+                system_prompt = build_system_prompt([mod]) if mod else build_system_prompt([])
             agents[agent_name] = LLMDefaultAgent(
                 agent_name, provider=provider, system_prompt=system_prompt
             )
 
         run_label = f"{exp_name}_r{round_idx + 1:02d}"
-        engine = SimulationEngine(run_label=run_label)
+        if mode == "resources":
+            engine = ResourceSimulationEngine(run_label=run_label)
+        else:
+            engine = SimulationEngine(run_label=run_label)
         engine.log_initial_state(
             script_name=run_label,
             agent_territories=agent_territories,
@@ -136,12 +153,23 @@ def main() -> int:
             constants=constants,
             prompt_modifiers=mod_map,
         )
-        engine.setup_state(
-            agent_territories=agent_territories,
-            agent_mils=agent_mils,
-            agent_welfare=agent_welfare,
-            use_generated_territories=True,
-        )
+        if mode == "resources":
+            engine.setup_state(
+                agent_territories=agent_territories,
+                agent_mils=agent_mils,
+                agent_welfare=agent_welfare,
+                use_generated_territories=True,
+                territory_seed=None,
+                resource_seed=None,
+                resource_richness=setup.get("resource_richness", 0.4),
+            )
+        else:
+            engine.setup_state(
+                agent_territories=agent_territories,
+                agent_mils=agent_mils,
+                agent_welfare=agent_welfare,
+                use_generated_territories=True,
+            )
         engine.setup_round(total_turns=num_turns)
 
         turn_summaries: Dict[str, str] = {a: "" for a in agent_names}
