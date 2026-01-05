@@ -28,7 +28,7 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def _round_data_dir(self) -> Path:
-        return Path(os.getcwd()) / "round_data"
+        return BASE_DIR.parent / "round_data"
 
     def _get_data_file(self, name: str) -> Optional[Path]:
         safe = os.path.basename(name)
@@ -65,7 +65,7 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/experiments":
-            exp_dir = Path(os.getcwd()) / "experiments"
+            exp_dir = BASE_DIR.parent / "experiments"
             if not exp_dir.exists():
                 self._send_json({"files": []})
                 return
@@ -77,7 +77,7 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
             params = parse_qs(parsed.query)
             file_name = params.get("file", [""])[0]
             safe = os.path.basename(unquote(file_name))
-            exp_path = Path(os.getcwd()) / "experiments" / safe
+            exp_path = BASE_DIR.parent / "experiments" / safe
             if not exp_path.is_file():
                 self.send_error(HTTPStatus.NOT_FOUND, "Experiment file not found")
                 return
@@ -98,7 +98,7 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
             file_name = params.get("file", [""])[0]
             chart_type = params.get("type", ["avg"])[0]
             safe = os.path.basename(unquote(file_name))
-            exp_path = Path(os.getcwd()) / "experiments" / safe
+            exp_path = BASE_DIR.parent / "experiments" / safe
             if not exp_path.is_file():
                 self.send_error(HTTPStatus.NOT_FOUND, "Experiment file not found")
                 return
