@@ -1,0 +1,80 @@
+{
+  "name": "resource_demo_4p",
+  "num_turns": 16,
+  "model": "gpt-5-nano",
+  "territory_seed": 42,
+  "resource_seed": 42,
+  "resource_peaks": {
+    "energy": 2,
+    "minerals": 2,
+    "food": 2
+  },
+  "resource_peak_max": 3,
+  "constants": {
+    "c_money_per_territory": 10,
+    "c_mil_purchase_price": 10,
+    "c_mil_upkeep_price": 1,
+    "c_damage_per_attack_mil": 5,
+    "c_defense_destroy_factor": 2,
+    "c_trade_factor": 1.5,
+    "c_min_energy": 1,
+    "c_min_minerals": 1,
+    "c_min_food": 1
+  },
+  "initial_state": {
+    "agent_territories": {
+      "John": [
+        "Auron",
+        "Bastion",
+        "Caldera",
+        "Driftwood",
+        "Everspring",
+        "Frostvale",
+        "Gildhaven",
+        "Highmoor"
+      ],
+      "Ruth": [
+        "Ironridge",
+        "Jasperin",
+        "KestrelBay",
+        "Larkspur",
+        "Mistwood",
+        "Northmarch",
+        "Oakenspire",
+        "Pinewatch"
+      ],
+      "Dima": [
+        "Queensrest",
+        "Ravenport",
+        "Stonegate",
+        "Thistledown",
+        "Umberfall",
+        "Valewood",
+        "Westreach",
+        "Yellowseed"
+      ],
+      "Ahmed": [
+        "Ashbarrow",
+        "Brightwater",
+        "Cloudrest",
+        "Dawnfield",
+        "Emberplain",
+        "Foxhollow",
+        "Griffonmere",
+        "Hearthstead"
+      ]
+    },
+    "agent_mils": {
+      "John": 0,
+      "Ruth": 0,
+      "Dima": 0,
+      "Ahmed": 0
+    },
+    "agent_welfare": {
+      "John": 0,
+      "Ruth": 0,
+      "Dima": 0,
+      "Ahmed": 0
+    }
+  }
+}
