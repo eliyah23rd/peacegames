@@ -1,6 +1,6 @@
 {
   "name": "resource_demo_4p",
-  "num_turns": 16,
+  "num_turns": 2,
   "model": "gpt-5-nano",
   "territory_seed": 42,
   "resource_seed": 42,
@@ -10,7 +10,7 @@
     "food": 2
   },
   "resource_peak_max": 3,
-  "resource_adjacent_pct": 50,
+  "resource_adjacent_pct": 20,
   "resource_one_pct": 50,
   "constants": {
     "c_money_per_territory": 10,

@@ -640,8 +640,7 @@ class ResourceSimulationEngine:
             ceded_territories=ceded_territories,
             received_territories=received_territories,
         )
-        if self.total_turns is not None and turn == self.total_turns - 1:
-            self._write_round_data()
+        self._write_round_data()
 
         return {
             "d_total_welfare_this_turn": d_total_welfare_this_turn,

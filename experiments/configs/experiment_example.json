@@ -4,5 +4,6 @@
   "rounds": 24,
   "model": "gpt-5-mini",
   "modifiers": ["diplomacy", "opportunist", "austerity", "aggressive", "sneaky", "peace_enforcer"],
-  "shuffle_modifiers": true
+  "shuffle_modifiers": true,
+  "resource_deterministic": false
 }

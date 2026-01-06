@@ -564,9 +564,9 @@ class SimulationEngine:
             trade_factor=float(constants["c_trade_factor"]),
             agent_territories=agent_territories,
         )
+        self._write_round_data()
         if self.total_turns is not None and turn == self.total_turns - 1:
             self._render_visualization()
-            self._write_round_data()
 
         return {
             "d_mil_purchase_intent": d_mil_purchase_intent,
