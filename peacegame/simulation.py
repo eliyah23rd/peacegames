@@ -169,6 +169,7 @@ class SimulationEngine:
         self.territory_names: List[str] = []
         self.per_turn_territory_owners: List[List[str | None]] = []
         self.capital_territories: Dict[str, str] = {}
+        self.per_turn_messages: List[Dict[str, Dict[str, str]]] = []
 
     def close(self) -> None:
         self._log_fp.close()
@@ -273,6 +274,7 @@ class SimulationEngine:
         self.per_turn_metrics = {}
         self.turns_seen = []
         self.per_turn_territory_owners = []
+        self.per_turn_messages = []
 
     def run_turn(
         self,
@@ -564,6 +566,7 @@ class SimulationEngine:
             trade_factor=float(constants["c_trade_factor"]),
             agent_territories=agent_territories,
         )
+        self.per_turn_messages.append(d_messages_sent)
         self._write_round_data()
         if self.total_turns is not None and turn == self.total_turns - 1:
             self._render_visualization()
@@ -925,6 +928,7 @@ class SimulationEngine:
                 for name in self.territory_names
             },
             "territory_owners": self.per_turn_territory_owners,
+            "messages": self.per_turn_messages,
         }
         out_dir = Path("round_data")
         log_stem = Path(self.log_path).stem

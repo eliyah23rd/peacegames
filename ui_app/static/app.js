@@ -24,8 +24,6 @@ const chartCanvas = document.getElementById("chartCanvas");
 const chartTitle = document.getElementById("chartTitle");
 const legend = document.getElementById("legend");
 const allMetricsGrid = document.getElementById("allMetricsGrid");
-const turnViewBtn = document.getElementById("turnViewBtn");
-const mapViewBtn = document.getElementById("mapViewBtn");
 const timelineView = document.getElementById("timelineView");
 const turnView = document.getElementById("turnView");
 const mapView = document.getElementById("mapView");
@@ -40,13 +38,24 @@ const mapPrevTurnBtn = document.getElementById("mapPrevTurnBtn");
 const mapNextTurnBtn = document.getElementById("mapNextTurnBtn");
 const mapBackBtn = document.getElementById("mapBackBtn");
 const mapLegend = document.getElementById("mapLegend");
-const experimentViewBtn = document.getElementById("experimentViewBtn");
 const experimentView = document.getElementById("experimentView");
 const experimentBackBtn = document.getElementById("experimentBackBtn");
 const experimentFileSelect = document.getElementById("experimentFileSelect");
 const experimentChartSelect = document.getElementById("experimentChartSelect");
 const experimentSummary = document.getElementById("experimentSummary");
 const experimentChart = document.getElementById("experimentChart");
+const messagesView = document.getElementById("messagesView");
+const messagesTurnLabel = document.getElementById("messagesTurnLabel");
+const messagesPrevTurnBtn = document.getElementById("messagesPrevTurnBtn");
+const messagesNextTurnBtn = document.getElementById("messagesNextTurnBtn");
+const messageSenderSelect = document.getElementById("messageSenderSelect");
+const messageRecipientSelect = document.getElementById("messageRecipientSelect");
+const messagesList = document.getElementById("messagesList");
+const navTimeline = document.getElementById("navTimeline");
+const navTurn = document.getElementById("navTurn");
+const navMap = document.getElementById("navMap");
+const navExperiment = document.getElementById("navExperiment");
+const navMessages = document.getElementById("navMessages");
 
 function formatNumber(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
@@ -79,6 +88,8 @@ async function loadData(filename) {
   populateMetrics();
   renderChart();
   renderTurnTable();
+  populateMessageFilters();
+  renderMessages();
 }
 
 async function loadExperimentFiles() {
@@ -124,6 +135,33 @@ function populateMetrics() {
   if (state.currentMetric) {
     metricSelect.value = state.currentMetric;
   }
+}
+
+function populateMessageFilters() {
+  if (!state.data) return;
+  const agents = state.data.agents || [];
+  messageSenderSelect.innerHTML = "";
+  agents.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    messageSenderSelect.appendChild(opt);
+  });
+  if (agents.length > 0) {
+    messageSenderSelect.value = agents[0];
+  }
+  messageRecipientSelect.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = "all";
+  allOpt.textContent = "all";
+  messageRecipientSelect.appendChild(allOpt);
+  agents.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    messageRecipientSelect.appendChild(opt);
+  });
+  messageRecipientSelect.value = "all";
 }
 
 function getMetricIndex(metric) {
@@ -339,6 +377,42 @@ function renderTurnTable() {
   turnTableWrapper.appendChild(container);
 }
 
+function renderMessages() {
+  if (!state.data) return;
+  const { turns, messages } = state.data;
+  const turnIdx = state.currentTurnIndex;
+  const turnValue = turns[turnIdx];
+  messagesTurnLabel.textContent = `Turn ${turnValue}`;
+
+  const sender = messageSenderSelect.value;
+  const recipient = messageRecipientSelect.value;
+  const turnMessages = Array.isArray(messages) ? messages[turnIdx] || {} : {};
+
+  messagesList.innerHTML = "";
+  const senderMsgs = turnMessages[sender] || {};
+  const filtered = Object.entries(senderMsgs).filter(([to]) => {
+    if (recipient === "all") return true;
+    return to === recipient;
+  });
+
+  if (filtered.length === 0) {
+    messagesList.textContent = "No messages for this selection.";
+    return;
+  }
+  filtered.forEach(([to, text]) => {
+    const item = document.createElement("div");
+    item.className = "message-item";
+    const meta = document.createElement("div");
+    meta.className = "message-meta";
+    meta.textContent = `${sender} -> ${to}`;
+    const body = document.createElement("div");
+    body.textContent = text;
+    item.appendChild(meta);
+    item.appendChild(body);
+    messagesList.appendChild(item);
+  });
+}
+
 function renderMap() {
   if (!state.data) return;
   const { territory_names, territory_positions, territory_owners, turns } = state.data;
@@ -370,20 +444,41 @@ metricSelect.addEventListener("change", (e) => {
   renderChart();
 });
 
-turnViewBtn.addEventListener("click", () => {
+function setActiveView(view) {
   timelineView.classList.add("hidden");
-  turnView.classList.remove("hidden");
-  mapView.classList.add("hidden");
-  experimentView.classList.add("hidden");
-  renderTurnTable();
-});
-
-backBtn.addEventListener("click", () => {
   turnView.classList.add("hidden");
   mapView.classList.add("hidden");
   experimentView.classList.add("hidden");
-  timelineView.classList.remove("hidden");
-});
+  messagesView.classList.add("hidden");
+  navTimeline.classList.remove("active");
+  navTurn.classList.remove("active");
+  navMap.classList.remove("active");
+  navExperiment.classList.remove("active");
+  navMessages.classList.remove("active");
+
+  if (view === "timeline") {
+    timelineView.classList.remove("hidden");
+    navTimeline.classList.add("active");
+    renderChart();
+  } else if (view === "turn") {
+    turnView.classList.remove("hidden");
+    navTurn.classList.add("active");
+    renderTurnTable();
+  } else if (view === "map") {
+    mapView.classList.remove("hidden");
+    navMap.classList.add("active");
+    renderMap();
+  } else if (view === "experiment") {
+    experimentView.classList.remove("hidden");
+    navExperiment.classList.add("active");
+  } else if (view === "messages") {
+    messagesView.classList.remove("hidden");
+    navMessages.classList.add("active");
+    renderMessages();
+  }
+}
+
+backBtn.addEventListener("click", () => setActiveView("timeline"));
 
 prevTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
@@ -397,18 +492,7 @@ nextTurnBtn.addEventListener("click", () => {
   renderTurnTable();
 });
 
-mapViewBtn.addEventListener("click", () => {
-  timelineView.classList.add("hidden");
-  turnView.classList.add("hidden");
-  mapView.classList.remove("hidden");
-  experimentView.classList.add("hidden");
-  renderMap();
-});
-
-mapBackBtn.addEventListener("click", () => {
-  mapView.classList.add("hidden");
-  timelineView.classList.remove("hidden");
-});
+mapBackBtn.addEventListener("click", () => setActiveView("timeline"));
 
 mapPrevTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
@@ -422,6 +506,27 @@ mapNextTurnBtn.addEventListener("click", () => {
   renderMap();
 });
 
+messagesPrevTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.max(0, state.currentTurnIndex - 1);
+  renderMessages();
+});
+
+messagesNextTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.min(state.data.turns.length - 1, state.currentTurnIndex + 1);
+  renderMessages();
+});
+
+messageSenderSelect.addEventListener("change", () => renderMessages());
+messageRecipientSelect.addEventListener("change", () => renderMessages());
+
+navTimeline.addEventListener("click", () => setActiveView("timeline"));
+navTurn.addEventListener("click", () => setActiveView("turn"));
+navMap.addEventListener("click", () => setActiveView("map"));
+navExperiment.addEventListener("click", () => setActiveView("experiment"));
+navMessages.addEventListener("click", () => setActiveView("messages"));
+
 function renderExperimentChart() {
   const file = experimentFileSelect.value;
   const chartType = experimentChartSelect.value;
@@ -432,17 +537,7 @@ function renderExperimentChart() {
   experimentChart.src = `/api/experiment_chart?file=${encodeURIComponent(file)}&type=${chartType}&t=${Date.now()}`;
 }
 
-experimentViewBtn.addEventListener("click", () => {
-  timelineView.classList.add("hidden");
-  turnView.classList.add("hidden");
-  mapView.classList.add("hidden");
-  experimentView.classList.remove("hidden");
-});
-
-experimentBackBtn.addEventListener("click", () => {
-  experimentView.classList.add("hidden");
-  timelineView.classList.remove("hidden");
-});
+experimentBackBtn.addEventListener("click", () => setActiveView("timeline"));
 
 experimentFileSelect.addEventListener("change", async (e) => {
   await loadExperiment(e.target.value);
