@@ -163,6 +163,8 @@ def main() -> int:
                 resource_seed=None,
                 resource_peaks=setup.get("resource_peaks"),
                 resource_peak_max=setup.get("resource_peak_max", 3),
+                resource_adjacent_pct=setup.get("resource_adjacent_pct", 50),
+                resource_one_pct=setup.get("resource_one_pct", 50),
             )
         else:
             engine.setup_state(

@@ -1,5 +1,4 @@
 import json
-import random
 import unittest
 
 from peacegame.resource_simulation import (
@@ -34,6 +33,8 @@ class ResourceSimulationTests(unittest.TestCase):
             graph,
             peaks_per_resource={"energy": 1, "minerals": 1, "food": 1},
             max_value=3,
+            resource_adjacent_pct=50,
+            resource_one_pct=50,
             seed=1,
         )
         self.assertEqual(set(resources.keys()), set(terrs))
@@ -42,31 +43,26 @@ class ResourceSimulationTests(unittest.TestCase):
                 self.assertIn(rtype, RESOURCE_TYPES)
                 self.assertTrue(0 < qty <= 3)
 
-    def test_generate_territory_resources_peak_decay(self) -> None:
+    def test_generate_territory_resources_peak_adjacency(self) -> None:
         terrs = ["A", "B", "C", "D"]
         graph = {"A": {"B"}, "B": {"A", "C"}, "C": {"B", "D"}, "D": {"C"}}
-        seed = 5
-        rng = random.Random(seed)
-        peak = rng.sample(terrs, 1)[0]
-        dist = {"A": 0, "B": 1, "C": 2, "D": 3}
-        # distance from peak along line
-        if peak == "B":
-            dist = {"A": 1, "B": 0, "C": 1, "D": 2}
-        elif peak == "C":
-            dist = {"A": 2, "B": 1, "C": 0, "D": 1}
-        elif peak == "D":
-            dist = {"A": 3, "B": 2, "C": 1, "D": 0}
         resources = generate_territory_resources(
             terrs,
             graph,
             peaks_per_resource={"energy": 1},
             max_value=3,
-            seed=seed,
+            resource_adjacent_pct=100,
+            resource_one_pct=0,
+            seed=7,
         )
-        for terr in terrs:
-            expected = max(0, 3 - dist[terr])
-            actual = resources[terr].get("energy", 0)
-            self.assertEqual(actual, expected)
+        values = {t: resources[t].get("energy", 0) for t in terrs}
+        self.assertIn(3, values.values())
+        for terr, val in values.items():
+            if val == 2:
+                self.assertTrue(
+                    any(values.get(n) == 3 for n in graph[terr]),
+                    f"{terr} has 2 but no adjacent 3",
+                )
 
     def test_resource_ratios_and_multiplier(self) -> None:
         totals = {

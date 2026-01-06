@@ -98,6 +98,8 @@ def main() -> int:
         resource_seed=setup.get("resource_seed"),
         resource_peaks=setup.get("resource_peaks"),
         resource_peak_max=setup.get("resource_peak_max", 3),
+        resource_adjacent_pct=setup.get("resource_adjacent_pct", 50),
+        resource_one_pct=setup.get("resource_one_pct", 50),
     )
     engine.setup_round(total_turns=num_turns)
 

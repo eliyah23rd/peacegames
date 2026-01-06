@@ -24,30 +24,14 @@ def _fmt_float(value: float) -> str:
     return f"{value:.2f}"
 
 
-def _multi_source_distances(
-    graph: Dict[str, Set[str]],
-    sources: List[str],
-) -> Dict[str, int]:
-    distances: Dict[str, int] = {s: 0 for s in sources}
-    queue = list(sources)
-    head = 0
-    while head < len(queue):
-        node = queue[head]
-        head += 1
-        for neighbor in graph.get(node, set()):
-            if neighbor in distances:
-                continue
-            distances[neighbor] = distances[node] + 1
-            queue.append(neighbor)
-    return distances
-
-
 def generate_territory_resources(
     territory_names: List[str],
     graph: Dict[str, Set[str]],
     *,
     peaks_per_resource: Mapping[str, int] | None = None,
     max_value: int = 3,
+    resource_adjacent_pct: int = 50,
+    resource_one_pct: int = 50,
     seed: int | None = None,
 ) -> Dict[str, Dict[str, int]]:
     rng = random.Random(seed)
@@ -62,12 +46,41 @@ def generate_territory_resources(
             continue
         count = min(count, len(territory_names))
         peak_nodes = rng.sample(territory_names, count)
-        distances = _multi_source_distances(graph, peak_nodes)
+
+        assigned: Set[str] = set()
+        tier_three: Set[str] = set()
+
+        for terr in peak_nodes:
+            resources[terr][rtype] = max_value
+            assigned.add(terr)
+            tier_three.add(terr)
+
+        # Adjacent to peaks: chance to also be max.
+        for peak in peak_nodes:
+            for neighbor in graph.get(peak, set()):
+                if neighbor in assigned:
+                    continue
+                if rng.randint(1, 100) <= resource_adjacent_pct:
+                    resources[neighbor][rtype] = max_value
+                    assigned.add(neighbor)
+                    tier_three.add(neighbor)
+
+        # Adjacent to any max resource: assign 3 or 2.
+        candidates = set()
+        for terr in tier_three:
+            candidates.update(graph.get(terr, set()))
+        for terr in sorted(candidates):
+            if terr in assigned:
+                continue
+            resources[terr][rtype] = max_value if rng.randint(1, 100) <= 50 else max_value - 1
+            assigned.add(terr)
+
+        # Random 1s across the remaining map.
         for terr in territory_names:
-            dist = distances.get(terr, max_value + 1)
-            value = max(0, max_value - dist)
-            if value > 0:
-                resources[terr][rtype] = value
+            if terr in assigned:
+                continue
+            if rng.randint(1, 100) <= resource_one_pct:
+                resources[terr][rtype] = 1
     return resources
 
 
@@ -246,6 +259,8 @@ class ResourceSimulationEngine:
         use_generated_territories: bool = False,
         resource_peaks: Mapping[str, int] | None = None,
         resource_peak_max: int = 3,
+        resource_adjacent_pct: int = 50,
+        resource_one_pct: int = 50,
     ) -> None:
         self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
         self.agent_mils = {k: int(v) for k, v in agent_mils.items()}
@@ -305,6 +320,8 @@ class ResourceSimulationEngine:
             self.territory_graph,
             peaks_per_resource=resource_peaks,
             max_value=resource_peak_max,
+            resource_adjacent_pct=resource_adjacent_pct,
+            resource_one_pct=resource_one_pct,
             seed=resource_seed,
         )
         self.pending_resource_grants = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
