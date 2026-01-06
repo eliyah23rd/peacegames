@@ -74,6 +74,7 @@ def main() -> int:
     model = cfg.get("model", setup.get("model", "gpt-5-nano"))
     shuffle_mods = bool(cfg.get("shuffle_modifiers", True))
     mode = cfg.get("mode", "base")
+    resource_deterministic = bool(cfg.get("resource_deterministic", False))
 
     constants = setup.get("constants", {})
     initial_state = setup.get("initial_state", {})
@@ -154,13 +155,14 @@ def main() -> int:
             prompt_modifiers=mod_map,
         )
         if mode == "resources":
+            resource_seed = setup.get("resource_seed") if resource_deterministic else None
             engine.setup_state(
                 agent_territories=agent_territories,
                 agent_mils=agent_mils,
                 agent_welfare=agent_welfare,
                 use_generated_territories=True,
                 territory_seed=None,
-                resource_seed=None,
+                resource_seed=resource_seed,
                 resource_peaks=setup.get("resource_peaks"),
                 resource_peak_max=setup.get("resource_peak_max", 3),
                 resource_adjacent_pct=setup.get("resource_adjacent_pct", 50),
