@@ -48,6 +48,11 @@ const experimentChartSelect = document.getElementById("experimentChartSelect");
 const experimentSummary = document.getElementById("experimentSummary");
 const experimentChart = document.getElementById("experimentChart");
 
+function formatNumber(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
+  return value.toFixed(2);
+}
+
 async function loadFiles() {
   const res = await fetch("/api/files");
   const payload = await res.json();
@@ -169,8 +174,8 @@ function renderChart() {
 
   ctx.fillStyle = "#6c655d";
   ctx.font = "12px Georgia";
-  ctx.fillText(String(maxVal), 8, padding + 4);
-  ctx.fillText(String(minVal), 8, padding + height);
+  ctx.fillText(formatNumber(maxVal), 8, padding + 4);
+  ctx.fillText(formatNumber(minVal), 8, padding + height);
 
   turns.forEach((turn, idx) => {
     ctx.fillText(String(turn), xScale(idx) - 6, padding + height + 18);
@@ -319,7 +324,7 @@ function renderTurnTable() {
 
       const value = document.createElement("div");
       value.className = "bar-value";
-      value.textContent = val;
+      value.textContent = formatNumber(val);
 
       row.appendChild(label);
       row.appendChild(track);

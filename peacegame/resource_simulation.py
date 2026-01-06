@@ -20,6 +20,10 @@ from .territory_graph import (
 RESOURCE_TYPES = ("energy", "minerals", "food")
 
 
+def _fmt_float(value: float) -> str:
+    return f"{value:.2f}"
+
+
 def _multi_source_distances(
     graph: Dict[str, Set[str]],
     sources: List[str],
@@ -220,7 +224,11 @@ class ResourceSimulationEngine:
         self.log(f"Initial welfare: {sorted(agent_welfare.items())}")
         self.log("Constants:")
         for key in sorted(constants.keys()):
-            self.log(f"  {key}: {constants[key]}")
+            val = constants[key]
+            if isinstance(val, float):
+                self.log(f"  {key}: {_fmt_float(val)}")
+            else:
+                self.log(f"  {key}: {val}")
         if prompt_modifiers is not None:
             self.log(f"Prompt modifiers: {prompt_modifiers}")
 
@@ -687,25 +695,30 @@ class ResourceSimulationEngine:
             energy_total = res_totals.get("energy", 0)
             minerals_total = res_totals.get("minerals", 0)
             food_total = res_totals.get("food", 0)
+            ratios_fmt = {
+                "energy": _fmt_float(float(res_ratios.get("energy", 0))),
+                "minerals": _fmt_float(float(res_ratios.get("minerals", 0))),
+                "food": _fmt_float(float(res_ratios.get("food", 0))),
+            }
 
             lines = [
                 f"Income: gross={gross}, effective={effective}, damage={damage}",
                 (
                     "Resource ratio details: "
                     f"energy_ratio=min(1, {energy_total}/({terr_count}*{min_energy}))="
-                    f"{res_ratios.get('energy', 0)}; "
+                    f"{ratios_fmt['energy']}; "
                     f"minerals_ratio=min(1, {minerals_total}/({terr_count}*{min_minerals}))="
-                    f"{res_ratios.get('minerals', 0)}; "
+                    f"{ratios_fmt['minerals']}; "
                     f"food_ratio=min(1, {food_total}/({terr_count}*{min_food}))="
-                    f"{res_ratios.get('food', 0)}"
+                    f"{ratios_fmt['food']}"
                 ),
                 (
                     "Effective income formula: "
-                    f"gross({gross}) * energy_ratio({res_ratios.get('energy', 0)}) * "
-                    f"minerals_ratio({res_ratios.get('minerals', 0)}) * "
-                    f"food_ratio({res_ratios.get('food', 0)}) = {effective}"
+                    f"gross({gross}) * energy_ratio({ratios_fmt['energy']}) * "
+                    f"minerals_ratio({ratios_fmt['minerals']}) * "
+                    f"food_ratio({ratios_fmt['food']}) = {effective}"
                 ),
-                f"Resources: totals={res_totals}, ratios={res_ratios}",
+                f"Resources: totals={res_totals}, ratios={ratios_fmt}",
                 "Note: resource grants do not cost money; they only transfer resources.",
                 f"Costs: upkeep={upkeep}, purchases={purchased}",
                 f"Army: lost={lost}, disbanded={disbanded}",
@@ -716,7 +729,12 @@ class ResourceSimulationEngine:
                 f"Aggressor report: {aggressor}",
                 f"Legal inbound cessions: {legal_inbound}",
                 f"Legal outbound cessions: {legal_outbound}",
-                f"Welfare: this_turn={welfare_this} = available_money({available}) + grants_received({grants_received})*trade_factor({trade_factor})",
+                "Welfare: this_turn={w} = available_money({a}) + grants_received({g})*trade_factor({tf})".format(
+                    w=welfare_this,
+                    a=available,
+                    g=grants_received,
+                    tf=_fmt_float(float(trade_factor)),
+                ),
             ]
             reports[agent] = "\n".join(lines)
         return reports

@@ -17,6 +17,10 @@ from .territory_graph import (
 from .visualizations import render_round_metrics
 
 
+def _fmt_float(value: float) -> str:
+    return f"{value:.2f}"
+
+
 def build_history_context(
     *,
     history_summary: str,
@@ -192,7 +196,11 @@ class SimulationEngine:
         self.log(f"Initial welfare: {sorted(agent_welfare.items())}")
         self.log("Constants:")
         for key in sorted(constants.keys()):
-            self.log(f"  {key}: {constants[key]}")
+            val = constants[key]
+            if isinstance(val, float):
+                self.log(f"  {key}: {_fmt_float(val)}")
+            else:
+                self.log(f"  {key}: {val}")
         if prompt_modifiers is not None:
             self.log(f"Prompt modifiers: {prompt_modifiers}")
 
@@ -752,7 +760,12 @@ class SimulationEngine:
             lines = [
                 f"Income: gross={gross} (territories * {self.last_money_per_territory}), damage={damage} (attacks * {self.last_damage_per_attack_mil}), capped={damage_capped}, wasted={damage_wasted}",
                 f"Costs: upkeep={upkeep} ({start} units * {upkeep_price}), purchases={purchase_cost} ({purchased} units * {purchase_price})",
-                f"Grants: received={grants_received}, paid={grants_paid}, trade_bonus={trade_bonus}, trade_factor={trade_factor}",
+                "Grants: received={gr}, paid={gp}, trade_bonus={tb}, trade_factor={tf}".format(
+                    gr=grants_received,
+                    gp=grants_paid,
+                    tb=_fmt_float(float(trade_bonus)),
+                    tf=_fmt_float(trade_factor),
+                ),
                 f"Defense: defense_mils={defense_mils}, attacker_losses=defense_mils/{self.last_defense_destroy_factor}",
                 f"Army: start={start}, lost={lost}, disbanded={disbanded}, voluntary_disband={voluntary}, purchased={purchased}, end={end}",
                 f"Reasoning (last turn): {reasoning}",
@@ -768,9 +781,9 @@ class SimulationEngine:
                     purchase_cost=purchase_cost,
                     gp=grants_paid,
                     g=grants_received,
-                    tf=trade_factor,
+                    tf=_fmt_float(trade_factor),
                     a=available,
-                    tb=trade_bonus,
+                    tb=_fmt_float(float(trade_bonus)),
                     t=total,
                     r=rank,
                     n=total_agents,
