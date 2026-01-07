@@ -378,7 +378,7 @@ class ResourceSimulationEngine:
         agent_mils = self.agent_mils
         agent_welfare = self.agent_welfare
         before_territories = {a: set(t) for a, t in agent_territories.items()}
-        money_grants_received = dict(self.pending_money_grants)
+        money_grants_received = {a: 0 for a in self.agent_names}
         resource_grants_received = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
         start_mils = dict(agent_mils)
 
@@ -604,8 +604,7 @@ class ResourceSimulationEngine:
             if received:
                 received_territories[agent] = received
 
-        # Money grants affect next turn welfare
-        next_pending_money = {a: 0 for a in self.agent_names}
+        # Money grants affect this turn welfare
         money_grants_sent = {a: 0 for a in self.agent_names}
         money_grants_sent_by_pair: Dict[str, Dict[str, int]] = {}
         for giver, grants in d_money_grants.items():
@@ -615,7 +614,7 @@ class ResourceSimulationEngine:
                     continue
                 paid = min(amount, available)
                 available -= paid
-                next_pending_money[receiver] = next_pending_money.get(receiver, 0) + paid
+                money_grants_received[receiver] = money_grants_received.get(receiver, 0) + paid
                 money_grants_sent[giver] = money_grants_sent.get(giver, 0) + paid
                 money_grants_sent_by_pair.setdefault(giver, {})
                 money_grants_sent_by_pair[giver][receiver] = (
@@ -625,14 +624,14 @@ class ResourceSimulationEngine:
 
         d_total_welfare_this_turn: Dict[str, int] = {}
         for agent in agent_territories:
-            grants_received = self.pending_money_grants.get(agent, 0)
+            grants_received = money_grants_received.get(agent, 0)
             d_total_welfare_this_turn[agent] = int(
                 d_available_money.get(agent, 0)
                 + grants_received * float(constants["c_trade_factor"])
             )
             agent_welfare[agent] += d_total_welfare_this_turn[agent]
 
-        self.pending_money_grants = next_pending_money
+        self.pending_money_grants = {a: 0 for a in self.agent_names}
 
         self.last_news_report = self._build_news_report(
             d_global_attacks=d_global_attacks,
@@ -673,7 +672,7 @@ class ResourceSimulationEngine:
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
             d_total_welfare_this_turn=d_total_welfare_this_turn,
             d_available_money=d_available_money,
-            pending_money_grants=self.pending_money_grants,
+            pending_money_grants=money_grants_received,
             trade_factor=float(constants["c_trade_factor"]),
             d_reasoning=d_reasoning,
             d_keeps_word_report=d_keeps_word_report,
@@ -977,17 +976,17 @@ class ResourceSimulationEngine:
             lines.append("Damage cap:")
             lines.extend(cap_lines)
 
-        trade_lines = []
+        income_lines = []
         for giver in sorted(money_grants_sent_by_pair.keys()):
             for receiver in sorted(money_grants_sent_by_pair[giver].keys()):
                 amt = money_grants_sent_by_pair[giver][receiver]
                 if amt > 0:
-                    trade_lines.append(f" - {giver} -> {receiver}: {amt}")
-        if trade_lines:
-            lines.append("Trade grants:")
-            lines.extend(trade_lines)
+                    income_lines.append(f" - {giver} -> {receiver}: {amt}")
+        if income_lines:
+            lines.append("Income grants:")
+            lines.extend(income_lines)
 
-        income_lines = []
+        trade_lines = []
         for giver in sorted(resource_grants_sent_by_pair.keys()):
             for receiver in sorted(resource_grants_sent_by_pair[giver].keys()):
                 res_map = resource_grants_sent_by_pair[giver][receiver]
@@ -998,10 +997,10 @@ class ResourceSimulationEngine:
                 f = res_map.get("food", 0)
                 if e == 0 and m == 0 and f == 0:
                     continue
-                income_lines.append(f" - {giver} -> {receiver}: E{e} M{m} F{f}")
-        if income_lines:
-            lines.append("Income grants:")
-            lines.extend(income_lines)
+                trade_lines.append(f" - {giver} -> {receiver}: E{e} M{m} F{f}")
+        if trade_lines:
+            lines.append("Trade grants:")
+            lines.extend(trade_lines)
 
         cession_lines = []
         for giver in sorted(d_territory_cession.keys()):

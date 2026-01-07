@@ -160,8 +160,8 @@ DEFAULT_RESOURCE_PROMPT = _build_prompt(
         "- Each territory requires minimum resources (c_min_energy, c_min_minerals, c_min_food).",
         "- Income multiplier = energy_ratio * mineral_ratio * food_ratio, capped at 1 for each ratio.",
         "- Damage to income is capped by effective income (post-resource scaling).",
-        "- Money grants affect NEXT turn; resource grants affect this turn.",
-        "- Money grants affect welfare next turn: welfare_this_turn = available_money + grants_received * trade_factor.",
+        "- Money grants affect this turn; resource grants affect this turn.",
+        "- Money grants affect welfare immediately: welfare_this_turn = available_money + grants_received * trade_factor.",
         "- Resource grants affect this turn's resource totals and income.",
         "- Resource grants do NOT cost money; they only transfer your resource production.",
     ],
@@ -190,9 +190,8 @@ DEFAULT_RESOURCE_PROMPT = _build_prompt(
         "a trade deal and (2) shows good faith and builds relationships. Once they grant you that reource "
         "which ends the income starvation you will have the income to pay them even more for their "
         "resources so this is usually a win-win. Unlike territory cessions, which are permanent, money "
-        "grants apply only to the next turn, while resource grants apply immediately to this turn's "
-        "ratios. Therefore, if you are missing resources, you will need to find someone who is willing "
-        "to grant you what you need turn after turn. On the "
+        "and resource grants apply only to the current turn. Therefore, if you are missing resources, "
+        "you will need to find someone who is willing to grant you what you need turn after turn. On the "
         "opposite side, if you have an excess of a resource, beyond the minimum you need, it is of do "
         "direct value to you. You might as well give it to anyone who has a deficit of that resource as "
         "a gesture of good will or as a promotional offer that will encourage them to pay you for the "

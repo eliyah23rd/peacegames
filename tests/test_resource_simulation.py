@@ -225,8 +225,8 @@ class ResourceSimulationTests(unittest.TestCase):
         )
         welfare_turn0 = results_turn0["d_total_welfare_this_turn"]["B"]
         welfare_turn1 = results_turn1["d_total_welfare_this_turn"]["B"]
-        self.assertEqual(welfare_turn0, 10)
-        self.assertEqual(welfare_turn1, 20)
+        self.assertEqual(welfare_turn0, 20)
+        self.assertEqual(welfare_turn1, 10)
         engine.close()
 
     def test_resource_grants_apply_same_turn(self) -> None:
