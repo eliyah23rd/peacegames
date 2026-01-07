@@ -14,91 +14,103 @@
           <h1>Round Data Viewer</h1>
           <p>Pick a data file, chart a metric, or step turn-by-turn.</p>
         </div>
-        <div class="controls">
-          <label>
-            Data file
-            <select id="dataFileSelect"></select>
-          </label>
-          <label>
-            Metric
-            <select id="metricSelect"></select>
-          </label>
-        </div>
       </header>
 
       <main class="content layout">
         <div class="views">
           <section id="timelineView" class="card">
-          <div class="card-header">
-            <div>
-              <h2 id="chartTitle">Total Welfare</h2>
-              <p id="chartSubtitle">All turns, all agents</p>
+            <div class="card-header">
+              <div>
+                <h2 id="chartTitle">Total Welfare</h2>
+                <p id="chartSubtitle">All turns, all agents</p>
+              </div>
+              <div class="controls compact">
+                <label>
+                  Data file
+                  <select id="timelineDataFileSelect" class="dataFileSelect"></select>
+                </label>
+                <label>
+                  Metric
+                  <select id="metricSelect"></select>
+                </label>
+              </div>
+              <div class="legend" id="legend"></div>
             </div>
-            <div class="legend" id="legend"></div>
-          </div>
-          <canvas id="chartCanvas" width="900" height="420"></canvas>
-          <div id="allMetricsGrid" class="metric-grid hidden"></div>
+            <canvas id="chartCanvas" width="900" height="420"></canvas>
+            <div id="allMetricsGrid" class="metric-grid hidden"></div>
           </section>
 
           <section id="turnView" class="card hidden">
-          <div class="card-header">
-            <div>
-              <h2>Turn Detail</h2>
-              <p id="turnLabel">Turn 0</p>
+            <div class="card-header">
+              <div>
+                <h2>Turn Detail</h2>
+                <p id="turnLabel">Turn 0</p>
+              </div>
+              <div class="turn-controls">
+                <button id="prevTurnBtn">Prev</button>
+                <button id="nextTurnBtn">Next</button>
+                <button id="backBtn" class="ghost">Back to timeline</button>
+              </div>
             </div>
-            <div class="turn-controls">
-              <button id="prevTurnBtn">Prev</button>
-              <button id="nextTurnBtn">Next</button>
-              <button id="backBtn" class="ghost">Back to timeline</button>
+            <div class="controls compact">
+              <label>
+                Data file
+                <select id="turnDataFileSelect" class="dataFileSelect"></select>
+              </label>
             </div>
-          </div>
-          <div id="turnTableWrapper" class="metric-grid"></div>
+            <div id="turnTableWrapper" class="metric-grid"></div>
           </section>
 
           <section id="mapView" class="card hidden">
-          <div class="card-header">
-            <div>
-              <h2>Territory Map</h2>
-              <p id="mapTurnLabel">Turn 0</p>
+            <div class="card-header">
+              <div>
+                <h2>Territory Map</h2>
+                <p id="mapTurnLabel">Turn 0</p>
+              </div>
+              <div class="turn-controls">
+                <button id="mapPrevTurnBtn">Prev</button>
+                <button id="mapNextTurnBtn">Next</button>
+                <button id="mapBackBtn" class="ghost">Back to timeline</button>
+              </div>
             </div>
-            <div class="turn-controls">
-              <button id="mapPrevTurnBtn">Prev</button>
-              <button id="mapNextTurnBtn">Next</button>
-              <button id="mapBackBtn" class="ghost">Back to timeline</button>
+            <div class="controls compact">
+              <label>
+                Data file
+                <select id="mapDataFileSelect" class="dataFileSelect"></select>
+              </label>
             </div>
-          </div>
-          <div class="legend" id="mapLegend"></div>
-          <img id="mapImage" class="map-canvas" alt="Territory map" />
+            <div class="legend" id="mapLegend"></div>
+            <img id="mapImage" class="map-canvas" alt="Territory map" />
           </section>
 
           <section id="experimentView" class="card hidden">
-          <div class="card-header">
-            <div>
-              <h2>Experiment Summary</h2>
-              <p>Analyze multi-round runs without generating files.</p>
+            <div class="card-header">
+              <div>
+                <h2>Experiment Summary</h2>
+                <p>Analyze multi-round runs without generating files.</p>
+              </div>
+              <div class="turn-controls">
+                <button id="experimentBackBtn" class="ghost">Back to timeline</button>
+              </div>
             </div>
-            <div class="turn-controls">
-              <button id="experimentBackBtn" class="ghost">Back to timeline</button>
+            <div class="experiment-controls">
+              <label>
+                Experiment file
+                <select id="experimentFileSelect"></select>
+              </label>
+              <label>
+                Chart
+                <select id="experimentChartSelect">
+                  <option value="avg">Average welfare</option>
+                  <option value="wins">Wins</option>
+                  <option value="dist">Welfare distribution</option>
+                </select>
+              </label>
             </div>
-          </div>
-          <div class="experiment-controls">
-            <label>
-              Experiment file
-              <select id="experimentFileSelect"></select>
-            </label>
-            <label>
-              Chart
-              <select id="experimentChartSelect">
-                <option value="avg">Average welfare</option>
-                <option value="wins">Wins</option>
-                <option value="dist">Welfare distribution</option>
-              </select>
-            </label>
-          </div>
-          <div class="experiment-layout">
-            <pre id="experimentSummary" class="experiment-summary"></pre>
-            <img id="experimentChart" class="map-canvas" alt="Experiment chart" />
-          </div>
+            <div class="experiment-layout">
+              <pre id="experimentSummary" class="experiment-summary"></pre>
+              <img id="experimentChart" class="map-canvas" alt="Experiment chart" />
+            </div>
           </section>
 
           <section id="messagesView" class="card hidden">
@@ -112,6 +124,12 @@
                 <button id="messagesNextTurnBtn">Next</button>
               </div>
             </div>
+            <div class="controls compact">
+              <label>
+                Data file
+                <select id="messagesDataFileSelect" class="dataFileSelect"></select>
+              </label>
+            </div>
             <div class="message-controls">
               <label>
                 Sender
@@ -124,6 +142,30 @@
             </div>
             <div id="messagesList" class="message-list"></div>
           </section>
+
+          <section id="reportsView" class="card hidden">
+            <div class="card-header">
+              <div>
+                <h2>Individual Report</h2>
+                <p id="reportsTurnLabel">Turn 0</p>
+              </div>
+              <div class="turn-controls">
+                <button id="reportsPrevTurnBtn">Prev</button>
+                <button id="reportsNextTurnBtn">Next</button>
+              </div>
+            </div>
+            <div class="controls compact">
+              <label>
+                Data file
+                <select id="reportsDataFileSelect" class="dataFileSelect"></select>
+              </label>
+              <label>
+                Agent
+                <select id="reportAgentSelect"></select>
+              </label>
+            </div>
+            <div id="reportBody" class="message-list"></div>
+          </section>
         </div>
 
         <aside class="side-nav">
@@ -133,6 +175,7 @@
           <button id="navMap" class="nav-btn">Map</button>
           <button id="navExperiment" class="nav-btn">Experiment</button>
           <button id="navMessages" class="nav-btn">Messages</button>
+          <button id="navReports" class="nav-btn">Reports</button>
         </aside>
       </main>
     </div>

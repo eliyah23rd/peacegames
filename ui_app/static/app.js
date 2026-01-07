@@ -3,6 +3,7 @@ const state = {
   data: null,
   currentMetric: null,
   currentTurnIndex: 0,
+  currentFile: null,
 };
 
 const palette = [
@@ -18,7 +19,7 @@ const palette = [
   "#f58a4b",
 ];
 
-const dataFileSelect = document.getElementById("dataFileSelect");
+const dataFileSelects = document.querySelectorAll(".dataFileSelect");
 const metricSelect = document.getElementById("metricSelect");
 const chartCanvas = document.getElementById("chartCanvas");
 const chartTitle = document.getElementById("chartTitle");
@@ -56,6 +57,13 @@ const navTurn = document.getElementById("navTurn");
 const navMap = document.getElementById("navMap");
 const navExperiment = document.getElementById("navExperiment");
 const navMessages = document.getElementById("navMessages");
+const navReports = document.getElementById("navReports");
+const reportsView = document.getElementById("reportsView");
+const reportsTurnLabel = document.getElementById("reportsTurnLabel");
+const reportsPrevTurnBtn = document.getElementById("reportsPrevTurnBtn");
+const reportsNextTurnBtn = document.getElementById("reportsNextTurnBtn");
+const reportAgentSelect = document.getElementById("reportAgentSelect");
+const reportBody = document.getElementById("reportBody");
 
 function formatNumber(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
@@ -66,16 +74,21 @@ async function loadFiles() {
   const res = await fetch("/api/files");
   const payload = await res.json();
   state.files = payload.files || [];
-  dataFileSelect.innerHTML = "";
-  state.files.forEach((name) => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    dataFileSelect.appendChild(opt);
+  dataFileSelects.forEach((select) => {
+    select.innerHTML = "";
+    state.files.forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    });
   });
   if (state.files.length > 0) {
-    dataFileSelect.value = state.files[0];
-    await loadData(state.files[0]);
+    state.currentFile = state.files[0];
+    dataFileSelects.forEach((select) => {
+      select.value = state.currentFile;
+    });
+    await loadData(state.currentFile);
   }
 
   await loadExperimentFiles();
@@ -84,12 +97,15 @@ async function loadFiles() {
 async function loadData(filename) {
   const res = await fetch(`/api/data/${encodeURIComponent(filename)}`);
   state.data = await res.json();
+  state.currentFile = filename;
   state.currentTurnIndex = 0;
   populateMetrics();
   renderChart();
   renderTurnTable();
   populateMessageFilters();
   renderMessages();
+  populateReportAgents();
+  renderReport();
 }
 
 async function loadExperimentFiles() {
@@ -162,6 +178,21 @@ function populateMessageFilters() {
     messageRecipientSelect.appendChild(opt);
   });
   messageRecipientSelect.value = "all";
+}
+
+function populateReportAgents() {
+  if (!state.data) return;
+  const agents = state.data.agents || [];
+  reportAgentSelect.innerHTML = "";
+  agents.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    reportAgentSelect.appendChild(opt);
+  });
+  if (agents.length > 0) {
+    reportAgentSelect.value = agents[0];
+  }
 }
 
 function getMetricIndex(metric) {
@@ -430,13 +461,19 @@ function renderMap() {
     mapLegend.appendChild(item);
   });
 
-  const fileName = dataFileSelect.value;
+  const fileName = state.currentFile;
   const turnValue = turns[turnIdx];
   mapImage.src = `/api/map?file=${encodeURIComponent(fileName)}&turn=${turnValue}&t=${Date.now()}`;
 }
 
-dataFileSelect.addEventListener("change", async (e) => {
-  await loadData(e.target.value);
+dataFileSelects.forEach((select) => {
+  select.addEventListener("change", async (e) => {
+    const value = e.target.value;
+    dataFileSelects.forEach((other) => {
+      other.value = value;
+    });
+    await loadData(value);
+  });
 });
 
 metricSelect.addEventListener("change", (e) => {
@@ -450,11 +487,13 @@ function setActiveView(view) {
   mapView.classList.add("hidden");
   experimentView.classList.add("hidden");
   messagesView.classList.add("hidden");
+  reportsView.classList.add("hidden");
   navTimeline.classList.remove("active");
   navTurn.classList.remove("active");
   navMap.classList.remove("active");
   navExperiment.classList.remove("active");
   navMessages.classList.remove("active");
+  navReports.classList.remove("active");
 
   if (view === "timeline") {
     timelineView.classList.remove("hidden");
@@ -475,6 +514,10 @@ function setActiveView(view) {
     messagesView.classList.remove("hidden");
     navMessages.classList.add("active");
     renderMessages();
+  } else if (view === "reports") {
+    reportsView.classList.remove("hidden");
+    navReports.classList.add("active");
+    renderReport();
   }
 }
 
@@ -526,6 +569,7 @@ navTurn.addEventListener("click", () => setActiveView("turn"));
 navMap.addEventListener("click", () => setActiveView("map"));
 navExperiment.addEventListener("click", () => setActiveView("experiment"));
 navMessages.addEventListener("click", () => setActiveView("messages"));
+navReports.addEventListener("click", () => setActiveView("reports"));
 
 function renderExperimentChart() {
   const file = experimentFileSelect.value;
@@ -546,6 +590,35 @@ experimentFileSelect.addEventListener("change", async (e) => {
 experimentChartSelect.addEventListener("change", () => {
   renderExperimentChart();
 });
+
+function renderReport() {
+  if (!state.data) return;
+  const { turns, reports } = state.data;
+  const turnIdx = state.currentTurnIndex;
+  const turnValue = turns[turnIdx];
+  reportsTurnLabel.textContent = `Turn ${turnValue}`;
+  const agent = reportAgentSelect.value;
+  const turnReports = Array.isArray(reports) ? reports[turnIdx] || {} : {};
+  const raw = turnReports[agent] || "No report for this agent.";
+  const lines = raw
+    .split("\n")
+    .filter((line) => !line.startsWith("Legal inbound cessions:") && !line.startsWith("Legal outbound cessions:"));
+  reportBody.textContent = lines.join("\n");
+}
+
+reportsPrevTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.max(0, state.currentTurnIndex - 1);
+  renderReport();
+});
+
+reportsNextTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.min(state.data.turns.length - 1, state.currentTurnIndex + 1);
+  renderReport();
+});
+
+reportAgentSelect.addEventListener("change", () => renderReport());
 
 loadFiles().catch((err) => {
   console.error(err);

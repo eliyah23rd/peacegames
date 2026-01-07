@@ -58,6 +58,12 @@ h1 {
   min-width: 260px;
 }
 
+.controls.compact {
+  min-width: auto;
+  grid-auto-flow: column;
+  align-items: end;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -281,6 +287,7 @@ h2 {
   background: #fff8f0;
   font-size: 13px;
   min-height: 120px;
+  white-space: pre-wrap;
 }
 
 .message-item {

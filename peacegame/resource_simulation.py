@@ -211,6 +211,7 @@ class ResourceSimulationEngine:
         self.per_turn_territory_owners: List[List[str | None]] = []
         self.capital_territories: Dict[str, str] = {}
         self.per_turn_messages: List[Dict[str, Dict[str, str]]] = []
+        self.per_turn_reports: List[Dict[str, str]] = []
 
     def close(self) -> None:
         self._log_fp.close()
@@ -331,6 +332,7 @@ class ResourceSimulationEngine:
         self.turns_seen = []
         self.per_turn_territory_owners = []
         self.per_turn_messages = []
+        self.per_turn_reports = []
 
     def setup_round(self, *, total_turns: int) -> None:
         self.total_turns = int(total_turns)
@@ -643,6 +645,7 @@ class ResourceSimulationEngine:
             received_territories=received_territories,
         )
         self.per_turn_messages.append(d_messages_sent)
+        self.per_turn_reports.append(dict(self.last_agent_reports))
         self._write_round_data()
 
         return {
@@ -970,6 +973,7 @@ class ResourceSimulationEngine:
             "territory_owners": self.per_turn_territory_owners,
             "territory_resources": self.territory_resources,
             "messages": self.per_turn_messages,
+            "reports": self.per_turn_reports,
         }
         out_dir = Path("round_data")
         log_stem = Path(self.log_path).stem
