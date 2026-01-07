@@ -167,7 +167,7 @@ class ResourceSimulationTests(unittest.TestCase):
         mult = _resource_multiplier(ratios)
         self.assertAlmostEqual(mult["A"], 1.0 * 0.5 * 0.75)
 
-    def test_money_grants_apply_next_turn(self) -> None:
+    def test_money_grants_apply_same_turn(self) -> None:
         engine = ResourceSimulationEngine(run_label="resource_test")
         constants = {
             "c_min_energy": 1,
@@ -227,6 +227,52 @@ class ResourceSimulationTests(unittest.TestCase):
         welfare_turn1 = results_turn1["d_total_welfare_this_turn"]["B"]
         self.assertEqual(welfare_turn0, 20)
         self.assertEqual(welfare_turn1, 10)
+        engine.close()
+
+    def test_money_grants_welfare_formula(self) -> None:
+        engine = ResourceSimulationEngine(run_label="resource_welfare_formula")
+        constants = {
+            "c_min_energy": 1,
+            "c_min_minerals": 1,
+            "c_min_food": 1,
+            "c_money_per_territory": 10,
+            "c_damage_per_attack_mil": 1,
+            "c_mil_upkeep_price": 0,
+            "c_mil_purchase_price": 100,
+            "c_defense_destroy_factor": 2,
+            "c_trade_factor": 1.5,
+        }
+        engine.setup_state(
+            agent_territories={"A": {"T1"}, "B": {"T2"}},
+            agent_mils={"A": 0, "B": 0},
+            agent_welfare={"A": 0, "B": 0},
+            territory_seed=3,
+            resource_seed=3,
+            use_generated_territories=False,
+            resource_peaks={"energy": 1, "minerals": 1, "food": 1},
+            resource_peak_max=3,
+        )
+        engine.territory_resources = {
+            "T1": {"energy": 1, "minerals": 1, "food": 1},
+            "T2": {"energy": 1, "minerals": 1, "food": 1},
+        }
+        engine.setup_round(total_turns=1)
+
+        agents = {
+            "A": ScriptedAgent({0: {"money_grants": {"B": 5}}}),
+            "B": ScriptedAgent({0: {}}),
+        }
+        summaries = {"A": "", "B": ""}
+        results_turn0 = engine.run_turn(
+            script_name="resource_welfare_formula",
+            turn=0,
+            agents=agents,
+            constants=constants,
+            turn_summaries=summaries,
+            max_summary_len=256,
+        )
+        welfare_turn0 = results_turn0["d_total_welfare_this_turn"]["B"]
+        self.assertEqual(welfare_turn0, 17)
         engine.close()
 
     def test_resource_grants_apply_same_turn(self) -> None:
