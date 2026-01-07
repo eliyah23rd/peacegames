@@ -466,6 +466,9 @@ class ResourceSimulationEngine:
             d_global_attacks, agent_mils, log_fn=self.log
         )
         d_global_attacked = _transpose_attacks(d_global_attacks)
+        d_attacks_received: Dict[str, int] = {}
+        for target, attackers in d_global_attacked.items():
+            d_attacks_received[target] = sum(attackers.values())
 
         d_attacking_mils: Dict[str, int] = {}
         for agent, targets in d_global_attacks.items():
@@ -534,10 +537,13 @@ class ResourceSimulationEngine:
             agent_mils[agent] = agent_mils.get(agent, 0) + purchased
 
         # Voluntary disband
+        d_mils_disbanded_voluntary: Dict[str, int] = {}
         for agent, requested in d_mils_disband_intent.items():
             current = agent_mils.get(agent, 0)
             disband = min(requested, current)
             agent_mils[agent] = current - disband
+            if disband > 0:
+                d_mils_disbanded_voluntary[agent] = disband
 
         # Territory cessions with adjacency enforcement
         for giver, cessions in d_territory_cession.items():
@@ -621,7 +627,7 @@ class ResourceSimulationEngine:
             money_grants_sent_by_pair=money_grants_sent_by_pair,
             resource_grants_sent_by_pair=d_resource_grants,
             d_territory_cession=d_territory_cession,
-            d_mils_disbanded_voluntary=d_mils_disband_intent,
+            d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
             agent_mils=start_mils,
             d_defense_mils=d_defense_mils,
             agent_territories=agent_territories,
@@ -638,12 +644,14 @@ class ResourceSimulationEngine:
         self.last_agent_reports = self._build_agent_reports(
             d_gross_income=d_gross_income,
             d_effective_income=d_effective_income,
+            d_attacks_received=d_attacks_received,
             d_resource_totals=resource_totals,
             d_resource_ratios=ratios,
             d_total_damage_received=d_total_damage_received,
             d_upkeep_cost=d_upkeep_cost,
             d_mil_purchased=d_mil_purchased,
             d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
             d_total_welfare_this_turn=d_total_welfare_this_turn,
             d_available_money=d_available_money,
@@ -661,6 +669,8 @@ class ResourceSimulationEngine:
             resource_grants_sent=resource_grants_sent,
             ceded_territories=ceded_territories,
             received_territories=received_territories,
+            start_mils=start_mils,
+            end_mils=dict(agent_mils),
         )
 
         self.log("Previous turn news report:")
@@ -683,6 +693,7 @@ class ResourceSimulationEngine:
             agent_mils=agent_mils,
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
             d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
             money_grants_sent=money_grants_sent,
             money_grants_received=money_grants_received,
             resource_grants_sent=resource_grants_sent,
@@ -717,12 +728,14 @@ class ResourceSimulationEngine:
         *,
         d_gross_income: Dict[str, int],
         d_effective_income: Dict[str, int],
+        d_attacks_received: Dict[str, int],
         d_resource_totals: Dict[str, Dict[str, int]],
         d_resource_ratios: Dict[str, Dict[str, float]],
         d_total_damage_received: Dict[str, int],
         d_upkeep_cost: Dict[str, int],
         d_mil_purchased: Dict[str, int],
         d_mils_disbanded_upkeep: Dict[str, int],
+        d_mils_disbanded_voluntary: Dict[str, int],
         d_mils_lost_by_attacker: Dict[str, int],
         d_total_welfare_this_turn: Dict[str, int],
         d_available_money: Dict[str, int],
@@ -740,6 +753,8 @@ class ResourceSimulationEngine:
         resource_grants_sent: Dict[str, Dict[str, int]],
         ceded_territories: Dict[str, List[str]],
         received_territories: Dict[str, List[str]],
+        start_mils: Dict[str, int],
+        end_mils: Dict[str, int],
     ) -> Dict[str, str]:
         reports: Dict[str, str] = {}
         for agent in sorted(d_gross_income.keys()):
@@ -751,7 +766,6 @@ class ResourceSimulationEngine:
             purchase_price = int(constants.get("c_mil_purchase_price", 0))
             purchase_cost = purchased * purchase_price
             lost = d_mils_lost_by_attacker.get(agent, 0)
-            disbanded = d_mils_disbanded_upkeep.get(agent, 0)
             welfare_this = d_total_welfare_this_turn.get(agent, 0)
             available = d_available_money.get(agent, 0)
             grants_received = pending_money_grants.get(agent, 0)
@@ -769,13 +783,23 @@ class ResourceSimulationEngine:
             terrs_received = received_territories.get(agent, [])
             terrs_ceded = ceded_territories.get(agent, [])
 
-            terr_count = max(len(self.agent_territories.get(agent, set())), 1)
+            terr_count = len(self.agent_territories.get(agent, set()))
             min_energy = float(constants.get("c_min_energy", 1))
             min_minerals = float(constants.get("c_min_minerals", 1))
             min_food = float(constants.get("c_min_food", 1))
+            money_per_terr = int(constants.get("c_money_per_territory", 0))
+            damage_per_attack = int(constants.get("c_damage_per_attack_mil", 0))
+            upkeep_price = int(constants.get("c_mil_upkeep_price", 0))
             energy_total = res_totals.get("energy", 0)
             minerals_total = res_totals.get("minerals", 0)
             food_total = res_totals.get("food", 0)
+            attacks_received = d_attacks_received.get(agent, 0)
+            start = start_mils.get(agent, 0)
+            end = end_mils.get(agent, 0)
+            disbanded_upkeep = d_mils_disbanded_upkeep.get(agent, 0)
+            disbanded_voluntary = d_mils_disbanded_voluntary.get(agent, 0)
+            disbanded_total = disbanded_upkeep + disbanded_voluntary
+            ratio_terr_count = max(terr_count, 1)
             ratios_fmt = {
                 "energy": _fmt_float(float(res_ratios.get("energy", 0))),
                 "minerals": _fmt_float(float(res_ratios.get("minerals", 0))),
@@ -783,23 +807,43 @@ class ResourceSimulationEngine:
             }
 
             lines = [
-                f"Income: gross={gross}, effective={effective}, damage={damage}",
+                f"Gross income: {gross} = territories({terr_count}) * c_money_per_territory({money_per_terr})",
+                f"Raw resources (before new grants): {res_totals}",
                 (
-                    "Resource ratio details: "
-                    f"energy_ratio=min(1, {energy_total}/({terr_count}*{min_energy}))="
+                    "Resource grants: received={received}, sent={sent} (apply next turn)"
+                ).format(received=res_received, sent=res_sent),
+                (
+                    "Resource ratios: "
+                    f"energy_ratio=min(1, {energy_total}/({ratio_terr_count}*{min_energy}))="
                     f"{ratios_fmt['energy']}; "
-                    f"minerals_ratio=min(1, {minerals_total}/({terr_count}*{min_minerals}))="
+                    f"minerals_ratio=min(1, {minerals_total}/({ratio_terr_count}*{min_minerals}))="
                     f"{ratios_fmt['minerals']}; "
-                    f"food_ratio=min(1, {food_total}/({terr_count}*{min_food}))="
+                    f"food_ratio=min(1, {food_total}/({ratio_terr_count}*{min_food}))="
                     f"{ratios_fmt['food']}"
                 ),
                 (
-                    "Effective income formula: "
+                    "Effective income: "
                     f"gross({gross}) * energy_ratio({ratios_fmt['energy']}) * "
                     f"minerals_ratio({ratios_fmt['minerals']}) * "
                     f"food_ratio({ratios_fmt['food']}) = {effective}"
                 ),
-                f"Resources: totals={res_totals}, ratios={ratios_fmt}",
+                (
+                    "Damage: {damage} = attacks_received({attacks}) * "
+                    "c_damage_per_attack_mil({damage_per_attack})"
+                ).format(
+                    damage=damage,
+                    attacks=attacks_received,
+                    damage_per_attack=damage_per_attack,
+                ),
+                f"Upkeep: {upkeep} = mils({start}) * c_mil_upkeep_price({upkeep_price})",
+                (
+                    "Purchases: {purchase_cost} = mils_purchased({purchased}) * "
+                    "c_mil_purchase_price({purchase_price})"
+                ).format(
+                    purchase_cost=purchase_cost,
+                    purchased=purchased,
+                    purchase_price=purchase_price,
+                ),
                 (
                     "Available money: {available} = effective({effective}) - damage({damage}) - "
                     "upkeep({upkeep}) - purchases({purchase_cost}=mils_purchased({purchased})"
@@ -816,27 +860,34 @@ class ResourceSimulationEngine:
                 ),
                 "Note: resource grants do not cost money; they only transfer resources.",
                 (
-                    "Costs: upkeep={upkeep}, purchases={purchase_cost} ({purchased} units * {purchase_price})"
+                    "Welfare: this_turn={w} = available_money({a}) + grants_received({g})*trade_factor({tf})"
                 ).format(
-                    upkeep=upkeep,
-                    purchase_cost=purchase_cost,
-                    purchased=purchased,
-                    purchase_price=purchase_price,
+                    w=welfare_this,
+                    a=available,
+                    g=grants_received,
+                    tf=_fmt_float(float(trade_factor)),
                 ),
-                f"Army: lost={lost}, disbanded={disbanded}",
-                f"Grants: money_received={money_received}, money_sent={money_sent}, resources_received={res_received}, resources_sent={res_sent}",
+                (
+                    "Army: start={start}, lost={lost}, disbanded={disbanded} "
+                    "(upkeep={upkeep_disbanded}, voluntary={voluntary}), purchased={purchased}, end={end}"
+                ).format(
+                    start=start,
+                    lost=lost,
+                    disbanded=disbanded_total,
+                    upkeep_disbanded=disbanded_upkeep,
+                    voluntary=disbanded_voluntary,
+                    purchased=purchased,
+                    end=end,
+                ),
+                (
+                    "Grants: money_received={money_received}, money_sent={money_sent}"
+                ).format(money_received=money_received, money_sent=money_sent),
                 f"Cessions: received={terrs_received}, ceded={terrs_ceded}",
                 f"Reasoning (last turn): {reasoning}",
                 f"Keeps word report: {keeps_word}",
                 f"Aggressor report: {aggressor}",
                 f"Legal inbound cessions: {legal_inbound}",
                 f"Legal outbound cessions: {legal_outbound}",
-                "Welfare: this_turn={w} = available_money({a}) + grants_received({g})*trade_factor({tf})".format(
-                    w=welfare_this,
-                    a=available,
-                    g=grants_received,
-                    tf=_fmt_float(float(trade_factor)),
-                ),
             ]
             reports[agent] = "\n".join(lines)
         return reports
@@ -1045,6 +1096,7 @@ class ResourceSimulationEngine:
         agent_mils: Dict[str, int],
         d_mils_lost_by_attacker: Dict[str, int],
         d_mils_disbanded_upkeep: Dict[str, int],
+        d_mils_disbanded_voluntary: Dict[str, int],
         money_grants_sent: Dict[str, int],
         money_grants_received: Dict[str, int],
         resource_grants_sent: Dict[str, Dict[str, int]],
@@ -1124,6 +1176,7 @@ class ResourceSimulationEngine:
             )
             self.per_turn_metrics["mils_disbanded"][agent].append(
                 d_mils_disbanded_upkeep.get(agent, 0)
+                + d_mils_disbanded_voluntary.get(agent, 0)
             )
             self.per_turn_metrics["trade_sent"][agent].append(money_grants_sent.get(agent, 0))
             self.per_turn_metrics["trade_welfare_received"][agent].append(
