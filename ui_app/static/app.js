@@ -32,15 +32,12 @@ const turnTableWrapper = document.getElementById("turnTableWrapper");
 const turnLabel = document.getElementById("turnLabel");
 const prevTurnBtn = document.getElementById("prevTurnBtn");
 const nextTurnBtn = document.getElementById("nextTurnBtn");
-const backBtn = document.getElementById("backBtn");
 const mapImage = document.getElementById("mapImage");
 const mapTurnLabel = document.getElementById("mapTurnLabel");
 const mapPrevTurnBtn = document.getElementById("mapPrevTurnBtn");
 const mapNextTurnBtn = document.getElementById("mapNextTurnBtn");
-const mapBackBtn = document.getElementById("mapBackBtn");
 const mapLegend = document.getElementById("mapLegend");
 const experimentView = document.getElementById("experimentView");
-const experimentBackBtn = document.getElementById("experimentBackBtn");
 const experimentFileSelect = document.getElementById("experimentFileSelect");
 const experimentChartSelect = document.getElementById("experimentChartSelect");
 const experimentSummary = document.getElementById("experimentSummary");
@@ -473,6 +470,15 @@ dataFileSelects.forEach((select) => {
       other.value = value;
     });
     await loadData(value);
+    if (!mapView.classList.contains("hidden")) {
+      renderMap();
+    }
+    if (!messagesView.classList.contains("hidden")) {
+      renderMessages();
+    }
+    if (!reportsView.classList.contains("hidden")) {
+      renderReport();
+    }
   });
 });
 
@@ -521,7 +527,6 @@ function setActiveView(view) {
   }
 }
 
-backBtn.addEventListener("click", () => setActiveView("timeline"));
 
 prevTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
@@ -535,7 +540,6 @@ nextTurnBtn.addEventListener("click", () => {
   renderTurnTable();
 });
 
-mapBackBtn.addEventListener("click", () => setActiveView("timeline"));
 
 mapPrevTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
@@ -581,7 +585,6 @@ function renderExperimentChart() {
   experimentChart.src = `/api/experiment_chart?file=${encodeURIComponent(file)}&type=${chartType}&t=${Date.now()}`;
 }
 
-experimentBackBtn.addEventListener("click", () => setActiveView("timeline"));
 
 experimentFileSelect.addEventListener("change", async (e) => {
   await loadExperiment(e.target.value);
