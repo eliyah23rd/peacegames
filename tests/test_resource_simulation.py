@@ -21,6 +21,60 @@ class ScriptedAgent:
 
 
 class ResourceSimulationTests(unittest.TestCase):
+    def _run_attack_scenario(self, *, attacker_mils: int, defender_mils: int) -> int:
+        engine = ResourceSimulationEngine(run_label="resource_attack_test")
+        constants = {
+            "c_min_energy": 1,
+            "c_min_minerals": 1,
+            "c_min_food": 1,
+            "c_money_per_territory": 10,
+            "c_damage_per_attack_mil": 1,
+            "c_mil_upkeep_price": 0,
+            "c_mil_purchase_price": 100,
+            "c_defense_destroy_factor": 2,
+            "c_trade_factor": 1.0,
+        }
+        engine.setup_state(
+            agent_territories={"A": {"T1"}, "B": {"T2"}},
+            agent_mils={"A": attacker_mils, "B": defender_mils},
+            agent_welfare={"A": 0, "B": 0},
+            territory_seed=1,
+            resource_seed=1,
+            use_generated_territories=False,
+            resource_peaks={"energy": 1, "minerals": 1, "food": 1},
+            resource_peak_max=3,
+        )
+        engine.territory_resources = {
+            "T1": {"energy": 1, "minerals": 1, "food": 1},
+            "T2": {"energy": 1, "minerals": 1, "food": 1},
+        }
+        engine.setup_round(total_turns=1)
+
+        agents = {
+            "A": ScriptedAgent({0: {"attacks": {"B": 2}}}),
+            "B": ScriptedAgent({0: {}}),
+        }
+        summaries = {"A": "", "B": ""}
+        engine.run_turn(
+            script_name="resource_attack_test",
+            turn=0,
+            agents=agents,
+            constants=constants,
+            turn_summaries=summaries,
+            max_summary_len=256,
+        )
+        lost = engine.per_turn_metrics["mils_destroyed"]["A"][-1]
+        engine.close()
+        return lost
+
+    def test_attacker_losses_no_defense(self) -> None:
+        lost = self._run_attack_scenario(attacker_mils=2, defender_mils=0)
+        self.assertEqual(lost, 0)
+
+    def test_attacker_losses_from_defense(self) -> None:
+        lost = self._run_attack_scenario(attacker_mils=2, defender_mils=4)
+        self.assertEqual(lost, 2)
+
     def test_generate_territory_resources_ranges(self) -> None:
         terrs = ["T1", "T2", "T3", "T4"]
         graph = {t: set() for t in terrs}

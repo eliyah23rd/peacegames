@@ -444,13 +444,6 @@ class ResourceSimulationEngine:
         d_global_attacks = _clamp_attacks_to_mils(
             d_global_attacks, agent_mils, log_fn=self.log
         )
-        attack_clamps: Dict[str, tuple[int, int]] = {}
-        for attacker in original_attacks:
-            before = sum(original_attacks.get(attacker, {}).values())
-            after = sum(d_global_attacks.get(attacker, {}).values())
-            if before != after:
-                attack_clamps[attacker] = (before, after)
-
         d_global_attacked = _transpose_attacks(d_global_attacks)
 
         d_attacking_mils: Dict[str, int] = {}
@@ -504,7 +497,9 @@ class ResourceSimulationEngine:
 
         d_mils_lost_by_attacker: Dict[str, int] = {}
         for defender, attackers in d_global_attacked.items():
-            total_losses = sum(attackers.values()) // int(constants["c_defense_destroy_factor"])
+            total_losses = d_defense_mils.get(defender, 0) // int(
+                constants["c_defense_destroy_factor"]
+            )
             losses = _allocate_losses_proportional(attackers, total_losses)
             for attacker, loss in losses.items():
                 d_mils_lost_by_attacker[attacker] = d_mils_lost_by_attacker.get(attacker, 0) + loss
@@ -597,6 +592,7 @@ class ResourceSimulationEngine:
 
         self.last_news_report = self._build_news_report(
             d_global_attacks=d_global_attacks,
+            original_attacks=original_attacks,
             d_mils_lost_by_attacker=d_mils_lost_by_attacker,
             d_total_damage_received=d_total_damage_received,
             d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
@@ -604,7 +600,6 @@ class ResourceSimulationEngine:
             money_grants_sent_by_pair=money_grants_sent_by_pair,
             resource_grants_sent_by_pair=d_resource_grants,
             d_territory_cession=d_territory_cession,
-            attack_clamps=attack_clamps,
             d_mils_disbanded_voluntary=d_mils_disband_intent,
             agent_mils=start_mils,
             d_defense_mils=d_defense_mils,
@@ -732,6 +727,8 @@ class ResourceSimulationEngine:
             damage = d_total_damage_received.get(agent, 0)
             upkeep = d_upkeep_cost.get(agent, 0)
             purchased = d_mil_purchased.get(agent, 0)
+            purchase_price = int(constants.get("c_mil_purchase_price", 0))
+            purchase_cost = purchased * purchase_price
             lost = d_mils_lost_by_attacker.get(agent, 0)
             disbanded = d_mils_disbanded_upkeep.get(agent, 0)
             welfare_this = d_total_welfare_this_turn.get(agent, 0)
@@ -782,9 +779,29 @@ class ResourceSimulationEngine:
                     f"food_ratio({ratios_fmt['food']}) = {effective}"
                 ),
                 f"Resources: totals={res_totals}, ratios={ratios_fmt}",
-                f"Available money: {available} = effective({effective}) - damage({damage}) - upkeep({upkeep}) - purchases({purchased})",
+                (
+                    "Available money: {available} = effective({effective}) - damage({damage}) - "
+                    "upkeep({upkeep}) - purchases({purchase_cost}=mils_purchased({purchased})"
+                    "*c_mil_purchase_price({purchase_price})) - grants_paid({grants_paid})"
+                ).format(
+                    available=available,
+                    effective=effective,
+                    damage=damage,
+                    upkeep=upkeep,
+                    purchase_cost=purchase_cost,
+                    purchased=purchased,
+                    purchase_price=purchase_price,
+                    grants_paid=money_sent,
+                ),
                 "Note: resource grants do not cost money; they only transfer resources.",
-                f"Costs: upkeep={upkeep}, purchases={purchased}",
+                (
+                    "Costs: upkeep={upkeep}, purchases={purchase_cost} ({purchased} units * {purchase_price})"
+                ).format(
+                    upkeep=upkeep,
+                    purchase_cost=purchase_cost,
+                    purchased=purchased,
+                    purchase_price=purchase_price,
+                ),
                 f"Army: lost={lost}, disbanded={disbanded}",
                 f"Grants: money_received={money_received}, money_sent={money_sent}, resources_received={res_received}, resources_sent={res_sent}",
                 f"Cessions: received={terrs_received}, ceded={terrs_ceded}",
@@ -807,6 +824,7 @@ class ResourceSimulationEngine:
         self,
         *,
         d_global_attacks: Dict[str, Dict[str, int]],
+        original_attacks: Dict[str, Dict[str, int]],
         d_mils_lost_by_attacker: Dict[str, int],
         d_total_damage_received: Dict[str, int],
         d_mils_disbanded_upkeep: Dict[str, int],
@@ -814,7 +832,6 @@ class ResourceSimulationEngine:
         money_grants_sent_by_pair: Dict[str, Dict[str, int]],
         resource_grants_sent_by_pair: Dict[str, Dict[str, Dict[str, int]]],
         d_territory_cession: Dict[str, Dict[str, List[str]]],
-        attack_clamps: Dict[str, tuple[int, int]],
         d_mils_disbanded_voluntary: Dict[str, int],
         agent_mils: Dict[str, int],
         d_defense_mils: Dict[str, int],
@@ -825,57 +842,60 @@ class ResourceSimulationEngine:
     ) -> str:
         lines: List[str] = []
 
-        lines.append("Attacks:")
         attack_lines = []
-        for attacker in sorted(d_global_attacks.keys()):
-            for target in sorted(d_global_attacks[attacker].keys()):
-                amt = d_global_attacks[attacker][target]
-                if amt > 0:
-                    attack_lines.append(f" - {attacker} -> {target}: {amt}")
-        lines.extend(attack_lines if attack_lines else [" - none"])
+        capped_lines = []
+        for attacker in sorted(original_attacks.keys()):
+            for target in sorted(original_attacks[attacker].keys()):
+                amt = original_attacks[attacker][target]
+                if amt <= 0:
+                    continue
+                attack_lines.append(f" - {attacker} -> {target}: {amt}")
+                capped = d_global_attacks.get(attacker, {}).get(target, 0)
+                capped_lines.append(f" - {attacker} -> {target}: {capped}")
+        if attack_lines:
+            lines.append("Attacks:")
+            lines.extend(attack_lines)
+            lines.append("Attacks capped:")
+            lines.extend(capped_lines)
 
-        lines.append("Attacks Cap:")
-        clamp_lines = []
-        for attacker in sorted(attack_clamps.keys()):
-            before, after = attack_clamps[attacker]
-            clamp_lines.append(f" - {attacker}: {before} -> {after}")
-        lines.extend(clamp_lines if clamp_lines else [" - none"])
-
-        lines.append("Mils lost in attacks:")
         loss_lines = []
         for attacker in sorted(d_mils_lost_by_attacker.keys()):
             amt = d_mils_lost_by_attacker[attacker]
             if amt > 0:
                 loss_lines.append(f" - {attacker}: {amt}")
-        lines.extend(loss_lines if loss_lines else [" - none"])
+        if loss_lines:
+            lines.append("Mils lost in attacks:")
+            lines.extend(loss_lines)
 
-        lines.append("Damage inflicted by attacks:")
         damage_lines = []
         for target in sorted(d_total_damage_received.keys()):
             dmg = d_total_damage_received[target]
             if dmg > 0:
                 damage_lines.append(f" - {target}: {dmg}")
-        lines.extend(damage_lines if damage_lines else [" - none"])
+        if damage_lines:
+            lines.append("Damage inflicted by attacks:")
+            lines.extend(damage_lines)
 
-        lines.append("Damage cap:")
         cap_lines = []
         for agent in sorted(d_total_damage_received.keys()):
             if d_total_damage_received[agent] >= d_effective_income.get(agent, 0):
                 cap_lines.append(
                     f" - {agent}: capped at {d_effective_income.get(agent, 0)}"
                 )
-        lines.extend(cap_lines if cap_lines else [" - none"])
+        if cap_lines:
+            lines.append("Damage cap:")
+            lines.extend(cap_lines)
 
-        lines.append("Trade grants:")
         trade_lines = []
         for giver in sorted(money_grants_sent_by_pair.keys()):
             for receiver in sorted(money_grants_sent_by_pair[giver].keys()):
                 amt = money_grants_sent_by_pair[giver][receiver]
                 if amt > 0:
                     trade_lines.append(f" - {giver} -> {receiver}: {amt}")
-        lines.extend(trade_lines if trade_lines else [" - none"])
+        if trade_lines:
+            lines.append("Trade grants:")
+            lines.extend(trade_lines)
 
-        lines.append("Income grants:")
         income_lines = []
         for giver in sorted(resource_grants_sent_by_pair.keys()):
             for receiver in sorted(resource_grants_sent_by_pair[giver].keys()):
@@ -888,9 +908,10 @@ class ResourceSimulationEngine:
                 if e == 0 and m == 0 and f == 0:
                     continue
                 income_lines.append(f" - {giver} -> {receiver}: E{e} M{m} F{f}")
-        lines.extend(income_lines if income_lines else [" - none"])
+        if income_lines:
+            lines.append("Income grants:")
+            lines.extend(income_lines)
 
-        lines.append("Territory cessions:")
         cession_lines = []
         for giver in sorted(d_territory_cession.keys()):
             for receiver in sorted(d_territory_cession[giver].keys()):
@@ -899,7 +920,9 @@ class ResourceSimulationEngine:
                     cession_lines.append(
                         f" - {giver} -> {receiver}: {', '.join(sorted(terrs))}"
                     )
-        lines.extend(cession_lines if cession_lines else [" - none"])
+        if cession_lines:
+            lines.append("Territory cessions:")
+            lines.extend(cession_lines)
 
         lines.append("Army status:")
         for agent in sorted(agent_mils.keys()):
@@ -907,30 +930,33 @@ class ResourceSimulationEngine:
                 f" - {agent}: army={agent_mils.get(agent, 0)}, defense_alloc={d_defense_mils.get(agent, 0)}"
             )
 
-        lines.append("Upkeep disband:")
         disband_lines = []
         for agent in sorted(d_mils_disbanded_upkeep.keys()):
             amt = d_mils_disbanded_upkeep[agent]
             if amt > 0:
                 disband_lines.append(f" - {agent}: {amt}")
-        lines.extend(disband_lines if disband_lines else [" - none"])
+        if disband_lines:
+            lines.append("Upkeep disband:")
+            lines.extend(disband_lines)
 
-        lines.append("Voluntary disband:")
         voluntary_lines = []
         for agent in sorted(d_mils_disbanded_voluntary.keys()):
             amt = d_mils_disbanded_voluntary[agent]
             if amt > 0:
                 voluntary_lines.append(f" - {agent}: {amt}")
-        lines.extend(voluntary_lines if voluntary_lines else [" - none"])
+        if voluntary_lines:
+            lines.append("Voluntary disband:")
+            lines.extend(voluntary_lines)
 
-        lines.append("Messages:")
         msg_lines = []
         for sender in sorted(d_messages_sent.keys()):
             for receiver in sorted(d_messages_sent[sender].keys()):
                 msg = d_messages_sent[sender][receiver]
                 if msg:
                     msg_lines.append(f" - {sender} -> {receiver}: {msg}")
-        lines.extend(msg_lines if msg_lines else [" - none"])
+        if msg_lines:
+            lines.append("Messages:")
+            lines.extend(msg_lines)
 
         lines.append("Territory resources:")
         for agent in sorted(agent_territories.keys()):

@@ -350,12 +350,6 @@ class SimulationEngine:
         d_global_attacks = _clamp_attacks_to_mils(
             d_global_attacks, agent_mils, log_fn=self.log
         )
-        attack_clamps: Dict[str, tuple[int, int]] = {}
-        for attacker, targets in original_attacks.items():
-            before = sum(targets.values())
-            after = sum(d_global_attacks.get(attacker, {}).values())
-            if before != after:
-                attack_clamps[attacker] = (before, after)
 
         d_gross_income: Dict[str, int] = {}
         for agent, territories in agent_territories.items():
@@ -514,7 +508,7 @@ class SimulationEngine:
             d_grants_received=d_grants_received,
             d_territory_cession=d_territory_cession,
             d_gross_income=d_gross_income,
-            attack_clamps=attack_clamps,
+            original_attacks=original_attacks,
             d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
             agent_mils=start_mils,
             d_defense_mils=d_defense_mils,
@@ -614,6 +608,7 @@ class SimulationEngine:
         self,
         *,
         d_global_attacks: Dict[str, Dict[str, int]],
+        original_attacks: Dict[str, Dict[str, int]],
         d_mils_lost_by_attacker: Dict[str, int],
         d_total_damage_received: Dict[str, int],
         d_mils_disbanded_upkeep: Dict[str, int],
@@ -621,67 +616,66 @@ class SimulationEngine:
         d_grants_received: Dict[str, Dict[str, int]],
         d_territory_cession: Dict[str, Dict[str, List[str]]],
         d_gross_income: Dict[str, int],
-        attack_clamps: Dict[str, tuple[int, int]],
         d_mils_disbanded_voluntary: Dict[str, int],
         agent_mils: Dict[str, int],
         d_defense_mils: Dict[str, int],
     ) -> str:
         lines: List[str] = []
 
-        lines.append("Attacks:")
         attack_lines = []
-        for attacker in sorted(d_global_attacks.keys()):
-            for target in sorted(d_global_attacks[attacker].keys()):
-                mils = d_global_attacks[attacker][target]
-                if mils > 0:
-                    attack_lines.append(f" - {attacker} -> {target}: {mils}")
-        lines.extend(attack_lines if attack_lines else [" - none"])
+        capped_lines = []
+        for attacker in sorted(original_attacks.keys()):
+            for target in sorted(original_attacks[attacker].keys()):
+                mils = original_attacks[attacker][target]
+                if mils <= 0:
+                    continue
+                attack_lines.append(f" - {attacker} -> {target}: {mils}")
+                capped = d_global_attacks.get(attacker, {}).get(target, 0)
+                capped_lines.append(f" - {attacker} -> {target}: {capped}")
+        if attack_lines:
+            lines.append("Attacks:")
+            lines.extend(attack_lines)
+            lines.append("Attacks capped:")
+            lines.extend(capped_lines)
 
-        lines.append("Attacks Cap:")
-        clamp_lines = []
-        for attacker in sorted(attack_clamps.keys()):
-            before, after = attack_clamps[attacker]
-            clamp_lines.append(f" - {attacker}: {before} -> {after}")
-        lines.extend(clamp_lines if clamp_lines else [" - none"])
-
-        lines.append("Mils lost in attacks:")
         loss_lines = []
         for attacker in sorted(d_mils_lost_by_attacker.keys()):
             amt = d_mils_lost_by_attacker[attacker]
             if amt > 0:
                 loss_lines.append(f" - {attacker}: {amt}")
-        lines.extend(loss_lines if loss_lines else [" - none"])
+        if loss_lines:
+            lines.append("Mils lost in attacks:")
+            lines.extend(loss_lines)
 
-        lines.append("Damage inflicted by attacks:")
         damage_lines = []
         for agent in sorted(d_total_damage_received.keys()):
             dmg = d_total_damage_received[agent]
             if dmg > 0:
                 damage_lines.append(f" - {agent}: {dmg}")
-        lines.extend(damage_lines if damage_lines else [" - none"])
+        if damage_lines:
+            lines.append("Damage inflicted by attacks:")
+            lines.extend(damage_lines)
 
-        lines.append("Damage cap:")
         cap_lines = []
         for agent in sorted(d_total_damage_received.keys()):
             if d_total_damage_received[agent] >= d_gross_income.get(agent, 0):
                 cap_lines.append(
                     f" - {agent}: capped at {d_gross_income.get(agent, 0)}"
                 )
-        lines.extend(cap_lines if cap_lines else [" - none"])
+        if cap_lines:
+            lines.append("Damage cap:")
+            lines.extend(cap_lines)
 
-        lines.append("Trade grants:")
         grant_lines = []
         for receiver in sorted(d_grants_received.keys()):
             for giver in sorted(d_grants_received[receiver].keys()):
                 amt = d_grants_received[receiver][giver]
                 if amt > 0:
                     grant_lines.append(f" - {giver} -> {receiver}: {amt}")
-        lines.extend(grant_lines if grant_lines else [" - none"])
+        if grant_lines:
+            lines.append("Trade grants:")
+            lines.extend(grant_lines)
 
-        lines.append("Income grants:")
-        lines.extend([" - none"])
-
-        lines.append("Territory cessions:")
         cession_lines = []
         for giver in sorted(d_territory_cession.keys()):
             for receiver in sorted(d_territory_cession[giver].keys()):
@@ -690,7 +684,9 @@ class SimulationEngine:
                     cession_lines.append(
                         f" - {giver} -> {receiver}: {', '.join(sorted(terrs))}"
                     )
-        lines.extend(cession_lines if cession_lines else [" - none"])
+        if cession_lines:
+            lines.append("Territory cessions:")
+            lines.extend(cession_lines)
 
         lines.append("Army status:")
         for agent in sorted(agent_mils.keys()):
@@ -698,32 +694,35 @@ class SimulationEngine:
                 f" - {agent}: army={agent_mils.get(agent, 0)}, defense_alloc={d_defense_mils.get(agent, 0)}"
             )
 
-        lines.append("Upkeep disband:")
         disband_lines = []
         for agent in sorted(d_mils_disbanded_upkeep.keys()):
             if d_mils_disbanded_upkeep[agent] > 0:
                 disband_lines.append(
                     f" - {agent}: {d_mils_disbanded_upkeep[agent]}"
                 )
-        lines.extend(disband_lines if disband_lines else [" - none"])
+        if disband_lines:
+            lines.append("Upkeep disband:")
+            lines.extend(disband_lines)
 
-        lines.append("Voluntary disband:")
         voluntary_lines = []
         for agent in sorted(d_mils_disbanded_voluntary.keys()):
             if d_mils_disbanded_voluntary[agent] > 0:
                 voluntary_lines.append(
                     f" - {agent}: {d_mils_disbanded_voluntary[agent]}"
                 )
-        lines.extend(voluntary_lines if voluntary_lines else [" - none"])
+        if voluntary_lines:
+            lines.append("Voluntary disband:")
+            lines.extend(voluntary_lines)
 
-        lines.append("Messages:")
         msg_lines = []
         for sender in sorted(d_messages_sent.keys()):
             for recipient in sorted(d_messages_sent[sender].keys()):
                 msg = d_messages_sent[sender][recipient]
                 if msg:
                     msg_lines.append(f" - {sender} -> {recipient}: {msg}")
-        lines.extend(msg_lines if msg_lines else [" - none"])
+        if msg_lines:
+            lines.append("Messages:")
+            lines.extend(msg_lines)
 
         return "\n".join(lines)
 
@@ -789,7 +788,20 @@ class SimulationEngine:
             purchase_price = self.last_purchase_price
             lines = [
                 f"Income: gross={gross} (territories * {self.last_money_per_territory}), damage={damage} (attacks * {self.last_damage_per_attack_mil}), capped={damage_capped}, wasted={damage_wasted}",
-                f"Available money: {available} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid({grants_paid})",
+                (
+                    "Available money: {available} = gross({gross}) - damage({damage}) - "
+                    "upkeep({upkeep}) - purchases({purchase_cost}=mils_purchased({purchased})"
+                    "*c_mil_purchase_price({purchase_price})) - grants_paid({grants_paid})"
+                ).format(
+                    available=available,
+                    gross=gross,
+                    damage=damage,
+                    upkeep=upkeep,
+                    purchase_cost=purchase_cost,
+                    purchased=purchased,
+                    purchase_price=purchase_price,
+                    grants_paid=grants_paid,
+                ),
                 f"Costs: upkeep={upkeep} ({start} units * {upkeep_price}), purchases={purchase_cost} ({purchased} units * {purchase_price})",
                 "Grants: received={gr}, paid={gp}, trade_bonus={tb}, trade_factor={tf}".format(
                     gr=grants_received,

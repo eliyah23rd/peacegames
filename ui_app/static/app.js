@@ -184,20 +184,28 @@ function populateMessageRecipients() {
   const sender = messageSenderSelect.value;
   const turnMessages = Array.isArray(messages) ? messages[turnIdx] || {} : {};
   const senderMsgs = turnMessages[sender] || {};
-  const recipients = Object.keys(senderMsgs);
   messageRecipientSelect.innerHTML = "";
-  const allOpt = document.createElement("option");
-  allOpt.value = "all";
-  allOpt.textContent = "all";
-  messageRecipientSelect.appendChild(allOpt);
-  recipients.forEach((name) => {
-    if (name === "all") return;
+  const allMsgsOpt = document.createElement("option");
+  allMsgsOpt.value = "__all__";
+  allMsgsOpt.textContent = "<all msgs>";
+  messageRecipientSelect.appendChild(allMsgsOpt);
+
+  const recipients = Object.keys(senderMsgs).sort();
+  if (recipients.includes("all")) {
     const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
+    opt.value = "all";
+    opt.textContent = "all";
     messageRecipientSelect.appendChild(opt);
-  });
-  messageRecipientSelect.value = "all";
+  }
+  recipients
+    .filter((name) => name !== "all")
+    .forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      messageRecipientSelect.appendChild(opt);
+    });
+  messageRecipientSelect.value = "__all__";
 }
 
 function populateReportAgents() {
@@ -442,7 +450,7 @@ function renderMessages() {
   messagesList.innerHTML = "";
   const senderMsgs = turnMessages[sender] || {};
   const filtered = Object.entries(senderMsgs).filter(([to]) => {
-    if (recipient === "all") return true;
+    if (recipient === "__all__") return true;
     return to === recipient;
   });
 
@@ -470,8 +478,24 @@ function renderNews() {
   const turnIdx = state.currentTurnIndex;
   const turnValue = turns[turnIdx];
   newsTurnLabel.textContent = `Turn ${turnValue}`;
-  const text = Array.isArray(news) ? news[turnIdx] || "No news for this turn." : "No news for this turn.";
-  newsBody.textContent = text;
+  const raw = Array.isArray(news) ? news[turnIdx] || "No news for this turn." : "No news for this turn.";
+  const lines = raw.split("\n");
+  const filtered = [];
+  let skipping = false;
+  for (const line of lines) {
+    if (line.startsWith("Messages:")) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      if (line.startsWith(" - ")) {
+        continue;
+      }
+      skipping = false;
+    }
+    filtered.push(line);
+  }
+  newsBody.textContent = filtered.join("\n");
 }
 
 function renderMap() {
