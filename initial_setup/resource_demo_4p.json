@@ -1,6 +1,6 @@
 {
   "name": "resource_demo_4p",
-  "num_turns": 24,
+  "num_turns": 8,
   "model": "gpt-5-mini",
   "seed": 43,
   "resource_peaks": {

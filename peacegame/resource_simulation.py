@@ -846,8 +846,7 @@ class ResourceSimulationEngine:
                 ),
                 (
                     "Available money: {available} = effective({effective}) - damage({damage}) - "
-                    "upkeep({upkeep}) - purchases({purchase_cost}=mils_purchased({purchased})"
-                    "*c_mil_purchase_price({purchase_price})) - grants_paid({grants_paid})"
+                    "upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid({grants_paid})"
                 ).format(
                     available=available,
                     effective=effective,
