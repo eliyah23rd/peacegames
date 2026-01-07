@@ -189,7 +189,13 @@ DEFAULT_RESOURCE_PROMPT = _build_prompt(
         "money or a resource they are missing in advance (1) prevents wasting precious turns negotiating "
         "a trade deal and (2) shows good faith and builds relationships. Once they grant you that reource "
         "which ends the income starvation you will have the income to pay them even more for their "
-        "resources so this is usually a win-win."
+        "resources so this is usually a win-win. Unlike territory cessions, which are permanent, grants "
+        "of money or resource apply only to the next turn. Therefore, if you are missing resources, you "
+        "will need to find someone who is willing to grant you what you need turn after turn. On the "
+        "opposite side, if you have an excess of a resource, beyond the minimum you need, it is of do "
+        "direct value to you. You might as well give it to anyone who has a deficit of that resource as "
+        "a gesture of good will or as a promotional offer that will encourage them to pay you for the "
+        "resource."
     ),
 )
 
