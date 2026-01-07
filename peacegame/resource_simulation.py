@@ -193,7 +193,7 @@ def _parse_resource_grants(
 
 
 class ResourceSimulationEngine:
-    """Resource-based simulation engine with next-turn grants."""
+    """Resource-based simulation engine (money grants next turn, resources immediate)."""
 
     def __init__(self, *, run_label: str = "resource_simulation") -> None:
         self.run_label = run_label
@@ -379,9 +379,7 @@ class ResourceSimulationEngine:
         agent_welfare = self.agent_welfare
         before_territories = {a: set(t) for a, t in agent_territories.items()}
         money_grants_received = dict(self.pending_money_grants)
-        resource_grants_received = {
-            a: dict(self.pending_resource_grants.get(a, {})) for a in self.agent_names
-        }
+        resource_grants_received = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
         start_mils = dict(agent_mils)
 
         legal_inbound, legal_outbound = compute_legal_cession_lists(
@@ -389,10 +387,10 @@ class ResourceSimulationEngine:
             self.territory_graph,
             capitals=self.capital_territories,
         )
-        resource_totals = _resource_totals(
+        base_resource_totals = _resource_totals(
             agent_territories, self.territory_resources, self.pending_resource_grants
         )
-        ratios = _resource_ratios(resource_totals, agent_territories, constants)
+        ratios = _resource_ratios(base_resource_totals, agent_territories, constants)
         mult = _resource_multiplier(ratios)
 
         inputs = assemble_agent_inputs(
@@ -410,7 +408,7 @@ class ResourceSimulationEngine:
             legal_outbound_cessions=legal_outbound,
         )
         for agent in inputs.keys():
-            inputs[agent]["resource_totals"] = resource_totals.get(agent, {})
+            inputs[agent]["resource_totals"] = base_resource_totals.get(agent, {})
             inputs[agent]["resource_ratios"] = ratios.get(agent, {})
             inputs[agent]["resource_minimums"] = {
                 "energy": constants["c_min_energy"],
@@ -452,6 +450,37 @@ class ResourceSimulationEngine:
             agent_territories=agent_territories,
             log_fn=self.log,
         )
+
+        resource_grants_sent = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
+        for giver, grants in d_resource_grants.items():
+            for receiver, res_map in grants.items():
+                for rtype, qty in res_map.items():
+                    resource_grants_sent[giver][rtype] = (
+                        resource_grants_sent[giver].get(rtype, 0) + int(qty)
+                    )
+                    resource_grants_received[receiver][rtype] = (
+                        resource_grants_received[receiver].get(rtype, 0) + int(qty)
+                    )
+
+        resource_totals = {
+            agent: dict(base_resource_totals.get(agent, {k: 0 for k in RESOURCE_TYPES}))
+            for agent in self.agent_names
+        }
+        for giver, grants in d_resource_grants.items():
+            for receiver, res_map in grants.items():
+                for rtype, qty in res_map.items():
+                    amount = int(qty)
+                    if amount <= 0:
+                        continue
+                    resource_totals[giver][rtype] = max(
+                        resource_totals[giver].get(rtype, 0) - amount, 0
+                    )
+                    resource_totals[receiver][rtype] = (
+                        resource_totals[receiver].get(rtype, 0) + amount
+                    )
+
+        ratios = _resource_ratios(resource_totals, agent_territories, constants)
+        mult = _resource_multiplier(ratios)
 
         # Resource-based income
         d_gross_income: Dict[str, int] = {}
@@ -594,17 +623,6 @@ class ResourceSimulationEngine:
                 )
             d_available_money[giver] = available
 
-        # Resource grants affect next turn resources
-        next_pending_resources = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
-        resource_grants_sent = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
-        for giver, grants in d_resource_grants.items():
-            for receiver, res_map in grants.items():
-                for rtype, qty in res_map.items():
-                    next_pending_resources[receiver][rtype] += qty
-                    resource_grants_sent[giver][rtype] = (
-                        resource_grants_sent[giver].get(rtype, 0) + qty
-                    )
-
         d_total_welfare_this_turn: Dict[str, int] = {}
         for agent in agent_territories:
             grants_received = self.pending_money_grants.get(agent, 0)
@@ -615,7 +633,6 @@ class ResourceSimulationEngine:
             agent_welfare[agent] += d_total_welfare_this_turn[agent]
 
         self.pending_money_grants = next_pending_money
-        self.pending_resource_grants = next_pending_resources
 
         self.last_news_report = self._build_news_report(
             d_global_attacks=d_global_attacks,
@@ -646,6 +663,7 @@ class ResourceSimulationEngine:
             d_effective_income=d_effective_income,
             d_attacks_received=d_attacks_received,
             d_resource_totals=resource_totals,
+            d_resource_totals_raw=base_resource_totals,
             d_resource_ratios=ratios,
             d_total_damage_received=d_total_damage_received,
             d_upkeep_cost=d_upkeep_cost,
@@ -730,6 +748,7 @@ class ResourceSimulationEngine:
         d_effective_income: Dict[str, int],
         d_attacks_received: Dict[str, int],
         d_resource_totals: Dict[str, Dict[str, int]],
+        d_resource_totals_raw: Dict[str, Dict[str, int]],
         d_resource_ratios: Dict[str, Dict[str, float]],
         d_total_damage_received: Dict[str, int],
         d_upkeep_cost: Dict[str, int],
@@ -770,6 +789,7 @@ class ResourceSimulationEngine:
             available = d_available_money.get(agent, 0)
             grants_received = pending_money_grants.get(agent, 0)
             res_totals = d_resource_totals.get(agent, {})
+            raw_totals = d_resource_totals_raw.get(agent, {})
             res_ratios = d_resource_ratios.get(agent, {})
             reasoning = d_reasoning.get(agent, "")
             keeps_word = d_keeps_word_report.get(agent, {})
@@ -808,9 +828,9 @@ class ResourceSimulationEngine:
 
             lines = [
                 f"Gross income: {gross} = territories({terr_count}) * c_money_per_territory({money_per_terr})",
-                f"Raw resources (before new grants): {res_totals}",
+                f"Raw resources (before new grants): {raw_totals}",
                 (
-                    "Resource grants: received={received}, sent={sent} (apply next turn)"
+                    "Resource grants: received={received}, sent={sent} (apply this turn)"
                 ).format(received=res_received, sent=res_sent),
                 (
                     "Resource ratios: "

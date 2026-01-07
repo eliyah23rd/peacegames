@@ -229,7 +229,7 @@ class ResourceSimulationTests(unittest.TestCase):
         self.assertEqual(welfare_turn1, 20)
         engine.close()
 
-    def test_resource_grants_improve_next_turn_income(self) -> None:
+    def test_resource_grants_apply_same_turn(self) -> None:
         engine = ResourceSimulationEngine(run_label="resource_grant_test")
         constants = {
             "c_min_energy": 2,
@@ -287,8 +287,8 @@ class ResourceSimulationTests(unittest.TestCase):
         )
         welfare_turn0 = results_turn0["d_total_welfare_this_turn"]["B"]
         welfare_turn1 = results_turn1["d_total_welfare_this_turn"]["B"]
-        self.assertEqual(welfare_turn0, 5)
-        self.assertEqual(welfare_turn1, 10)
+        self.assertEqual(welfare_turn0, 10)
+        self.assertEqual(welfare_turn1, 5)
         engine.close()
 
 
