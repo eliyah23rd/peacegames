@@ -21,6 +21,41 @@ class ScriptedAgent:
 
 
 class ResourceSimulationTests(unittest.TestCase):
+    def test_seed_determinism_and_capital_resources(self) -> None:
+        initial_territories = {"A": {"T1", "T2"}, "B": {"T3", "T4"}}
+        initial_mils = {"A": 0, "B": 0}
+        initial_welfare = {"A": 0, "B": 0}
+
+        def snapshot() -> dict:
+            engine = ResourceSimulationEngine(run_label="resource_seed_test")
+            engine.setup_state(
+                agent_territories=initial_territories,
+                agent_mils=initial_mils,
+                agent_welfare=initial_welfare,
+                seed=7,
+                use_generated_territories=True,
+                resource_peaks={"energy": 1, "minerals": 1, "food": 1},
+                resource_peak_max=3,
+                resource_adjacent_pct=50,
+                resource_one_pct=50,
+            )
+            for terr in engine.capital_territories.values():
+                res = engine.territory_resources.get(terr, {})
+                for rtype in RESOURCE_TYPES:
+                    self.assertEqual(res.get(rtype, 0), 0)
+            snap = {
+                "graph": engine.territory_graph,
+                "positions": engine.territory_positions,
+                "ownership": engine.agent_territories,
+                "capitals": engine.capital_territories,
+                "resources": engine.territory_resources,
+            }
+            engine.close()
+            return snap
+
+        first = snapshot()
+        second = snapshot()
+        self.assertEqual(first, second)
     def _run_attack_scenario(self, *, attacker_mils: int, defender_mils: int) -> int:
         engine = ResourceSimulationEngine(run_label="resource_attack_test")
         constants = {

@@ -2,8 +2,7 @@
   "name": "resource_demo_4p",
   "num_turns": 2,
   "model": "gpt-5-nano",
-  "territory_seed": 42,
-  "resource_seed": 42,
+  "seed": 42,
   "resource_peaks": {
     "energy": 2,
     "minerals": 2,

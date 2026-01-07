@@ -5,7 +5,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from peacegame.llm_agent import (
     DummyLLMProvider,
@@ -39,6 +39,26 @@ def _normalize_modifiers(mods: list[str]) -> list[str]:
     for raw in mods:
         out.extend([m for m in raw.split(",") if m])
     return out
+
+
+def _normalize_seed(raw: Any) -> Optional[int]:
+    if raw is None:
+        return None
+    seed = int(raw)
+    if seed < 0:
+        return None
+    return seed
+
+
+def _resolve_round_seed(base_seed: Any) -> Optional[int]:
+    if base_seed is None:
+        return None
+    seed = int(base_seed)
+    if seed < 0:
+        import random
+
+        return random.SystemRandom().randint(0, 2**31 - 1)
+    return seed
 
 
 def _format_round_command(
@@ -97,6 +117,11 @@ def main() -> int:
         for agent, welfare in initial_state.get("agent_welfare", {}).items()
     }
     agent_names = sorted(set(agent_territories) | set(agent_mils) | set(agent_welfare))
+    seed_value = setup.get("seed")
+    if seed_value is None:
+        seed_value = setup.get("territory_seed")
+    if seed_value is None:
+        seed_value = setup.get("resource_seed")
 
     modifier_pool = _normalize_modifiers(cfg.get("modifiers", []))
     rounds_config = cfg.get("rounds_config", [])
@@ -155,14 +180,16 @@ def main() -> int:
             prompt_modifiers=mod_map,
         )
         if mode == "resources":
-            resource_seed = setup.get("resource_seed") if resource_deterministic else None
+            if seed_value is not None:
+                resolved_seed = _resolve_round_seed(seed_value)
+            else:
+                resolved_seed = _normalize_seed(setup.get("resource_seed")) if resource_deterministic else None
             engine.setup_state(
                 agent_territories=agent_territories,
                 agent_mils=agent_mils,
                 agent_welfare=agent_welfare,
                 use_generated_territories=True,
-                territory_seed=None,
-                resource_seed=resource_seed,
+                seed=resolved_seed,
                 resource_peaks=setup.get("resource_peaks"),
                 resource_peak_max=setup.get("resource_peak_max", 3),
                 resource_adjacent_pct=setup.get("resource_adjacent_pct", 50),
@@ -174,6 +201,7 @@ def main() -> int:
                 agent_mils=agent_mils,
                 agent_welfare=agent_welfare,
                 use_generated_territories=True,
+                seed=_resolve_round_seed(seed_value),
             )
         engine.setup_round(total_turns=num_turns)
 

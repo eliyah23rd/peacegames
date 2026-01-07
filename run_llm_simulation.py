@@ -27,6 +27,15 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _normalize_seed(raw: Any) -> int | None:
+    if raw is None:
+        return None
+    seed = int(raw)
+    if seed < 0:
+        return None
+    return seed
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(
@@ -89,11 +98,16 @@ def main() -> int:
         constants=constants,
         prompt_modifiers=mod_map or None,
     )
+    seed_value = setup.get("seed")
+    if seed_value is None:
+        seed_value = setup.get("territory_seed")
+
     engine.setup_state(
         agent_territories=agent_territories,
         agent_mils=agent_mils,
         agent_welfare=agent_welfare,
         use_generated_territories=True,
+        seed=_normalize_seed(seed_value),
     )
     engine.setup_round(total_turns=num_turns)
 

@@ -24,6 +24,15 @@ def _fmt_float(value: float) -> str:
     return f"{value:.2f}"
 
 
+def _normalize_seed(seed: int | None) -> int | None:
+    if seed is None:
+        return None
+    seed = int(seed)
+    if seed < 0:
+        return None
+    return seed
+
+
 def generate_territory_resources(
     territory_names: List[str],
     graph: Dict[str, Set[str]],
@@ -259,14 +268,22 @@ class ResourceSimulationEngine:
         agent_territories: Mapping[str, Set[str]],
         agent_mils: Mapping[str, int],
         agent_welfare: Mapping[str, int],
-        territory_seed: int | None = 42,
-        resource_seed: int | None = 42,
+        seed: int | None = None,
+        territory_seed: int | None = None,
+        resource_seed: int | None = None,
         use_generated_territories: bool = False,
         resource_peaks: Mapping[str, int] | None = None,
         resource_peak_max: int = 3,
         resource_adjacent_pct: int = 50,
         resource_one_pct: int = 50,
     ) -> None:
+        resolved_seed = _normalize_seed(seed)
+        if resolved_seed is not None:
+            territory_seed = resolved_seed
+            resource_seed = resolved_seed
+        territory_seed = _normalize_seed(territory_seed)
+        resource_seed = _normalize_seed(resource_seed)
+
         self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
         self.agent_mils = {k: int(v) for k, v in agent_mils.items()}
         self.agent_welfare = {k: int(v) for k, v in agent_welfare.items()}
@@ -329,6 +346,10 @@ class ResourceSimulationEngine:
             resource_one_pct=resource_one_pct,
             seed=resource_seed,
         )
+        for terr in self.capital_territories.values():
+            if not terr:
+                continue
+            self.territory_resources[terr] = {rtype: 0 for rtype in RESOURCE_TYPES}
         self.pending_resource_grants = {a: {k: 0 for k in RESOURCE_TYPES} for a in self.agent_names}
         self.pending_money_grants = {a: 0 for a in self.agent_names}
         self.per_turn_metrics = {}
@@ -924,6 +945,11 @@ class ResourceSimulationEngine:
             lines.append("Territory cessions:")
             lines.extend(cession_lines)
 
+        lines.append("Capitals:")
+        for agent in sorted(self.agent_names):
+            cap = self.capital_territories.get(agent, "")
+            lines.append(f" - {agent}: {cap or 'none'}")
+
         lines.append("Army status:")
         for agent in sorted(agent_mils.keys()):
             lines.append(
@@ -958,7 +984,7 @@ class ResourceSimulationEngine:
             lines.append("Messages:")
             lines.extend(msg_lines)
 
-        lines.append("Territory resources:")
+        lines.append("Territory resources (E=energy, M=minerals, F=food):")
         for agent in sorted(agent_territories.keys()):
             terrs = sorted(agent_territories.get(agent, set()))
             pieces = []
@@ -969,7 +995,7 @@ class ResourceSimulationEngine:
                 )
             lines.append(f" - {agent} [{', '.join(pieces)}]")
 
-        lines.append("Raw resources:")
+        lines.append("Raw resources (+ means surplus, - means deficit)")
         for agent in sorted(agent_territories.keys()):
             terr_count = len(agent_territories.get(agent, set()))
             totals = raw_resource_totals.get(agent, {})
@@ -1198,6 +1224,7 @@ class ResourceSimulationEngine:
             },
             "territory_owners": self.per_turn_territory_owners,
             "territory_resources": self.territory_resources,
+            "capitals": self.capital_territories,
             "messages": self.per_turn_messages,
             "reports": self.per_turn_reports,
             "news": self.per_turn_news,

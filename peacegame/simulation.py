@@ -21,6 +21,15 @@ def _fmt_float(value: float) -> str:
     return f"{value:.2f}"
 
 
+def _normalize_seed(seed: int | None) -> int | None:
+    if seed is None:
+        return None
+    seed = int(seed)
+    if seed < 0:
+        return None
+    return seed
+
+
 def build_history_context(
     *,
     history_summary: str,
@@ -218,9 +227,14 @@ class SimulationEngine:
         agent_territories: Mapping[str, Set[str]],
         agent_mils: Mapping[str, int],
         agent_welfare: Mapping[str, int],
+        seed: int | None = None,
         territory_seed: int | None = None,
         use_generated_territories: bool = False,
     ) -> None:
+        resolved_seed = _normalize_seed(seed)
+        if resolved_seed is not None:
+            territory_seed = resolved_seed
+        territory_seed = _normalize_seed(territory_seed)
         self.agent_territories = {k: set(v) for k, v in agent_territories.items()}
         self.agent_mils = {k: int(v) for k, v in agent_mils.items()}
         self.agent_welfare = {k: int(v) for k, v in agent_welfare.items()}
@@ -688,6 +702,11 @@ class SimulationEngine:
             lines.append("Territory cessions:")
             lines.extend(cession_lines)
 
+        lines.append("Capitals:")
+        for agent in sorted(self.agent_names):
+            cap = self.capital_territories.get(agent, "")
+            lines.append(f" - {agent}: {cap or 'none'}")
+
         lines.append("Army status:")
         for agent in sorted(agent_mils.keys()):
             lines.append(
@@ -968,6 +987,7 @@ class SimulationEngine:
                 for name in self.territory_names
             },
             "territory_owners": self.per_turn_territory_owners,
+            "capitals": self.capital_territories,
             "messages": self.per_turn_messages,
             "reports": self.per_turn_reports,
             "news": self.per_turn_news,

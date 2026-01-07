@@ -37,6 +37,7 @@ const mapTurnLabel = document.getElementById("mapTurnLabel");
 const mapPrevTurnBtn = document.getElementById("mapPrevTurnBtn");
 const mapNextTurnBtn = document.getElementById("mapNextTurnBtn");
 const mapLegend = document.getElementById("mapLegend");
+const mapCapitals = document.getElementById("mapCapitals");
 const experimentView = document.getElementById("experimentView");
 const experimentFileSelect = document.getElementById("experimentFileSelect");
 const experimentChartSelect = document.getElementById("experimentChartSelect");
@@ -500,7 +501,7 @@ function renderNews() {
 
 function renderMap() {
   if (!state.data) return;
-  const { territory_names, territory_positions, territory_owners, turns } = state.data;
+  const { territory_names, territory_positions, territory_owners, turns, capitals } = state.data;
   if (!territory_names || !territory_positions || !territory_owners) return;
 
   const turnIdx = state.currentTurnIndex;
@@ -514,6 +515,15 @@ function renderMap() {
     item.appendChild(document.createTextNode(agent));
     mapLegend.appendChild(item);
   });
+  const capLines = [];
+  if (capitals) {
+    Object.keys(capitals)
+      .sort()
+      .forEach((agent) => {
+        capLines.push(`${agent}: ${capitals[agent] || "none"}`);
+      });
+  }
+  mapCapitals.textContent = capLines.length ? `Capitals:\n${capLines.join("\n")}` : "Capitals: none";
 
   const fileName = state.currentFile;
   const turnValue = turns[turnIdx];
