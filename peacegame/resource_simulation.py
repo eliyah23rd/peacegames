@@ -212,6 +212,8 @@ class ResourceSimulationEngine:
         self.capital_territories: Dict[str, str] = {}
         self.per_turn_messages: List[Dict[str, Dict[str, str]]] = []
         self.per_turn_reports: List[Dict[str, str]] = []
+        self.per_turn_news: List[str] = []
+        self.constants_cache: Dict[str, Any] = {}
 
     def close(self) -> None:
         self._log_fp.close()
@@ -238,6 +240,7 @@ class ResourceSimulationEngine:
         self.log(f"Initial mils: {sorted(agent_mils.items())}")
         self.log(f"Initial welfare: {sorted(agent_welfare.items())}")
         self.log("Constants:")
+        self.constants_cache = dict(constants)
         for key in sorted(constants.keys()):
             val = constants[key]
             if isinstance(val, float):
@@ -333,6 +336,7 @@ class ResourceSimulationEngine:
         self.per_turn_territory_owners = []
         self.per_turn_messages = []
         self.per_turn_reports = []
+        self.per_turn_news = []
 
     def setup_round(self, *, total_turns: int) -> None:
         self.total_turns = int(total_turns)
@@ -357,6 +361,7 @@ class ResourceSimulationEngine:
         resource_grants_received = {
             a: dict(self.pending_resource_grants.get(a, {})) for a in self.agent_names
         }
+        start_mils = dict(agent_mils)
 
         legal_inbound, legal_outbound = compute_legal_cession_lists(
             agent_territories,
@@ -439,12 +444,21 @@ class ResourceSimulationEngine:
         d_global_attacks = _clamp_attacks_to_mils(
             d_global_attacks, agent_mils, log_fn=self.log
         )
+        attack_clamps: Dict[str, tuple[int, int]] = {}
+        for attacker in original_attacks:
+            before = sum(original_attacks.get(attacker, {}).values())
+            after = sum(d_global_attacks.get(attacker, {}).values())
+            if before != after:
+                attack_clamps[attacker] = (before, after)
 
         d_global_attacked = _transpose_attacks(d_global_attacks)
 
         d_attacking_mils: Dict[str, int] = {}
         for agent, targets in d_global_attacks.items():
             d_attacking_mils[agent] = sum(targets.values())
+        d_defense_mils: Dict[str, int] = {}
+        for agent, total in start_mils.items():
+            d_defense_mils[agent] = max(total - d_attacking_mils.get(agent, 0), 0)
 
         d_total_damage_received: Dict[str, int] = {}
         for target, attackers in d_global_attacked.items():
@@ -542,6 +556,7 @@ class ResourceSimulationEngine:
         # Money grants affect next turn welfare
         next_pending_money = {a: 0 for a in self.agent_names}
         money_grants_sent = {a: 0 for a in self.agent_names}
+        money_grants_sent_by_pair: Dict[str, Dict[str, int]] = {}
         for giver, grants in d_money_grants.items():
             available = d_available_money.get(giver, 0)
             for receiver, amount in grants.items():
@@ -551,6 +566,10 @@ class ResourceSimulationEngine:
                 available -= paid
                 next_pending_money[receiver] = next_pending_money.get(receiver, 0) + paid
                 money_grants_sent[giver] = money_grants_sent.get(giver, 0) + paid
+                money_grants_sent_by_pair.setdefault(giver, {})
+                money_grants_sent_by_pair[giver][receiver] = (
+                    money_grants_sent_by_pair[giver].get(receiver, 0) + paid
+                )
             d_available_money[giver] = available
 
         # Resource grants affect next turn resources
@@ -575,6 +594,25 @@ class ResourceSimulationEngine:
 
         self.pending_money_grants = next_pending_money
         self.pending_resource_grants = next_pending_resources
+
+        self.last_news_report = self._build_news_report(
+            d_global_attacks=d_global_attacks,
+            d_mils_lost_by_attacker=d_mils_lost_by_attacker,
+            d_total_damage_received=d_total_damage_received,
+            d_mils_disbanded_upkeep=d_mils_disbanded_upkeep,
+            d_messages_sent=d_messages_sent,
+            money_grants_sent_by_pair=money_grants_sent_by_pair,
+            resource_grants_sent_by_pair=d_resource_grants,
+            d_territory_cession=d_territory_cession,
+            attack_clamps=attack_clamps,
+            d_mils_disbanded_voluntary=d_mils_disband_intent,
+            agent_mils=start_mils,
+            d_defense_mils=d_defense_mils,
+            agent_territories=agent_territories,
+            raw_resource_totals=_resource_totals(agent_territories, self.territory_resources, {}),
+            constants=constants,
+            d_effective_income=d_effective_income,
+        )
 
         legal_inbound_after, legal_outbound_after = compute_legal_cession_lists(
             agent_territories,
@@ -609,6 +647,8 @@ class ResourceSimulationEngine:
             received_territories=received_territories,
         )
 
+        self.log("Previous turn news report:")
+        self.log(self.last_news_report)
         self.log("Previous turn agent reports:")
         for agent in sorted(self.last_agent_reports.keys()):
             self.log(f"[{agent}]")
@@ -646,6 +686,7 @@ class ResourceSimulationEngine:
         )
         self.per_turn_messages.append(d_messages_sent)
         self.per_turn_reports.append(dict(self.last_agent_reports))
+        self.per_turn_news.append(self.last_news_report)
         self._write_round_data()
 
         return {
@@ -741,6 +782,7 @@ class ResourceSimulationEngine:
                     f"food_ratio({ratios_fmt['food']}) = {effective}"
                 ),
                 f"Resources: totals={res_totals}, ratios={ratios_fmt}",
+                f"Available money: {available} = effective({effective}) - damage({damage}) - upkeep({upkeep}) - purchases({purchased})",
                 "Note: resource grants do not cost money; they only transfer resources.",
                 f"Costs: upkeep={upkeep}, purchases={purchased}",
                 f"Army: lost={lost}, disbanded={disbanded}",
@@ -760,6 +802,164 @@ class ResourceSimulationEngine:
             ]
             reports[agent] = "\n".join(lines)
         return reports
+
+    def _build_news_report(
+        self,
+        *,
+        d_global_attacks: Dict[str, Dict[str, int]],
+        d_mils_lost_by_attacker: Dict[str, int],
+        d_total_damage_received: Dict[str, int],
+        d_mils_disbanded_upkeep: Dict[str, int],
+        d_messages_sent: Dict[str, Dict[str, str]],
+        money_grants_sent_by_pair: Dict[str, Dict[str, int]],
+        resource_grants_sent_by_pair: Dict[str, Dict[str, Dict[str, int]]],
+        d_territory_cession: Dict[str, Dict[str, List[str]]],
+        attack_clamps: Dict[str, tuple[int, int]],
+        d_mils_disbanded_voluntary: Dict[str, int],
+        agent_mils: Dict[str, int],
+        d_defense_mils: Dict[str, int],
+        agent_territories: Dict[str, Set[str]],
+        raw_resource_totals: Dict[str, Dict[str, int]],
+        constants: Mapping[str, Any],
+        d_effective_income: Dict[str, int],
+    ) -> str:
+        lines: List[str] = []
+
+        lines.append("Attacks:")
+        attack_lines = []
+        for attacker in sorted(d_global_attacks.keys()):
+            for target in sorted(d_global_attacks[attacker].keys()):
+                amt = d_global_attacks[attacker][target]
+                if amt > 0:
+                    attack_lines.append(f" - {attacker} -> {target}: {amt}")
+        lines.extend(attack_lines if attack_lines else [" - none"])
+
+        lines.append("Attacks Cap:")
+        clamp_lines = []
+        for attacker in sorted(attack_clamps.keys()):
+            before, after = attack_clamps[attacker]
+            clamp_lines.append(f" - {attacker}: {before} -> {after}")
+        lines.extend(clamp_lines if clamp_lines else [" - none"])
+
+        lines.append("Mils lost in attacks:")
+        loss_lines = []
+        for attacker in sorted(d_mils_lost_by_attacker.keys()):
+            amt = d_mils_lost_by_attacker[attacker]
+            if amt > 0:
+                loss_lines.append(f" - {attacker}: {amt}")
+        lines.extend(loss_lines if loss_lines else [" - none"])
+
+        lines.append("Damage inflicted by attacks:")
+        damage_lines = []
+        for target in sorted(d_total_damage_received.keys()):
+            dmg = d_total_damage_received[target]
+            if dmg > 0:
+                damage_lines.append(f" - {target}: {dmg}")
+        lines.extend(damage_lines if damage_lines else [" - none"])
+
+        lines.append("Damage cap:")
+        cap_lines = []
+        for agent in sorted(d_total_damage_received.keys()):
+            if d_total_damage_received[agent] >= d_effective_income.get(agent, 0):
+                cap_lines.append(
+                    f" - {agent}: capped at {d_effective_income.get(agent, 0)}"
+                )
+        lines.extend(cap_lines if cap_lines else [" - none"])
+
+        lines.append("Trade grants:")
+        trade_lines = []
+        for giver in sorted(money_grants_sent_by_pair.keys()):
+            for receiver in sorted(money_grants_sent_by_pair[giver].keys()):
+                amt = money_grants_sent_by_pair[giver][receiver]
+                if amt > 0:
+                    trade_lines.append(f" - {giver} -> {receiver}: {amt}")
+        lines.extend(trade_lines if trade_lines else [" - none"])
+
+        lines.append("Income grants:")
+        income_lines = []
+        for giver in sorted(resource_grants_sent_by_pair.keys()):
+            for receiver in sorted(resource_grants_sent_by_pair[giver].keys()):
+                res_map = resource_grants_sent_by_pair[giver][receiver]
+                if not res_map:
+                    continue
+                e = res_map.get("energy", 0)
+                m = res_map.get("minerals", 0)
+                f = res_map.get("food", 0)
+                if e == 0 and m == 0 and f == 0:
+                    continue
+                income_lines.append(f" - {giver} -> {receiver}: E{e} M{m} F{f}")
+        lines.extend(income_lines if income_lines else [" - none"])
+
+        lines.append("Territory cessions:")
+        cession_lines = []
+        for giver in sorted(d_territory_cession.keys()):
+            for receiver in sorted(d_territory_cession[giver].keys()):
+                terrs = d_territory_cession[giver][receiver]
+                if terrs:
+                    cession_lines.append(
+                        f" - {giver} -> {receiver}: {', '.join(sorted(terrs))}"
+                    )
+        lines.extend(cession_lines if cession_lines else [" - none"])
+
+        lines.append("Army status:")
+        for agent in sorted(agent_mils.keys()):
+            lines.append(
+                f" - {agent}: army={agent_mils.get(agent, 0)}, defense_alloc={d_defense_mils.get(agent, 0)}"
+            )
+
+        lines.append("Upkeep disband:")
+        disband_lines = []
+        for agent in sorted(d_mils_disbanded_upkeep.keys()):
+            amt = d_mils_disbanded_upkeep[agent]
+            if amt > 0:
+                disband_lines.append(f" - {agent}: {amt}")
+        lines.extend(disband_lines if disband_lines else [" - none"])
+
+        lines.append("Voluntary disband:")
+        voluntary_lines = []
+        for agent in sorted(d_mils_disbanded_voluntary.keys()):
+            amt = d_mils_disbanded_voluntary[agent]
+            if amt > 0:
+                voluntary_lines.append(f" - {agent}: {amt}")
+        lines.extend(voluntary_lines if voluntary_lines else [" - none"])
+
+        lines.append("Messages:")
+        msg_lines = []
+        for sender in sorted(d_messages_sent.keys()):
+            for receiver in sorted(d_messages_sent[sender].keys()):
+                msg = d_messages_sent[sender][receiver]
+                if msg:
+                    msg_lines.append(f" - {sender} -> {receiver}: {msg}")
+        lines.extend(msg_lines if msg_lines else [" - none"])
+
+        lines.append("Territory resources:")
+        for agent in sorted(agent_territories.keys()):
+            terrs = sorted(agent_territories.get(agent, set()))
+            pieces = []
+            for terr in terrs:
+                res = self.territory_resources.get(terr, {})
+                pieces.append(
+                    f"{terr} (E{res.get('energy', 0)}, M{res.get('minerals', 0)}, F{res.get('food', 0)})"
+                )
+            lines.append(f" - {agent} [{', '.join(pieces)}]")
+
+        lines.append("Raw resources:")
+        for agent in sorted(agent_territories.keys()):
+            terr_count = len(agent_territories.get(agent, set()))
+            totals = raw_resource_totals.get(agent, {})
+            min_energy = terr_count * int(constants.get("c_min_energy", 1))
+            min_minerals = terr_count * int(constants.get("c_min_minerals", 1))
+            min_food = terr_count * int(constants.get("c_min_food", 1))
+            def _fmt(val: int) -> str:
+                return f"{val:+d}"
+            e_surplus = totals.get("energy", 0) - min_energy
+            m_surplus = totals.get("minerals", 0) - min_minerals
+            f_surplus = totals.get("food", 0) - min_food
+            lines.append(
+                f" - {agent} E{_fmt(e_surplus)}, M{_fmt(m_surplus)}, F{_fmt(f_surplus)}"
+            )
+
+        return "\n".join(lines)
 
     def _log_messages(self, d_messages_sent: Dict[str, Dict[str, str]]) -> None:
         if not d_messages_sent:
@@ -974,6 +1174,8 @@ class ResourceSimulationEngine:
             "territory_resources": self.territory_resources,
             "messages": self.per_turn_messages,
             "reports": self.per_turn_reports,
+            "news": self.per_turn_news,
+            "constants": self.constants_cache,
         }
         out_dir = Path("round_data")
         log_stem = Path(self.log_path).stem

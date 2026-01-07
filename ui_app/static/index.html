@@ -140,6 +140,26 @@
             <div id="messagesList" class="message-list"></div>
           </section>
 
+          <section id="newsView" class="card hidden">
+            <div class="card-header">
+              <div>
+                <h2>Global News</h2>
+                <p id="newsTurnLabel">Turn 0</p>
+              </div>
+              <div class="turn-controls">
+                <button id="newsPrevTurnBtn">Prev</button>
+                <button id="newsNextTurnBtn">Next</button>
+              </div>
+            </div>
+            <div class="controls compact">
+              <label>
+                Data file
+                <select id="newsDataFileSelect" class="dataFileSelect"></select>
+              </label>
+            </div>
+            <div id="newsBody" class="message-list"></div>
+          </section>
+
           <section id="reportsView" class="card hidden">
             <div class="card-header">
               <div>
@@ -163,6 +183,22 @@
             </div>
             <div id="reportBody" class="message-list"></div>
           </section>
+
+          <section id="constantsView" class="card hidden">
+            <div class="card-header">
+              <div>
+                <h2>Constants</h2>
+                <p>Simulation parameters for this data file.</p>
+              </div>
+            </div>
+            <div class="controls compact">
+              <label>
+                Data file
+                <select id="constantsDataFileSelect" class="dataFileSelect"></select>
+              </label>
+            </div>
+            <div id="constantsBody" class="message-list"></div>
+          </section>
         </div>
 
         <aside class="side-nav">
@@ -172,7 +208,9 @@
           <button id="navMap" class="nav-btn">Map</button>
           <button id="navExperiment" class="nav-btn">Experiment</button>
           <button id="navMessages" class="nav-btn">Messages</button>
+          <button id="navNews" class="nav-btn">News</button>
           <button id="navReports" class="nav-btn">Reports</button>
+          <button id="navConstants" class="nav-btn">Constants</button>
         </aside>
       </main>
     </div>

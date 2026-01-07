@@ -49,11 +49,17 @@ const messagesNextTurnBtn = document.getElementById("messagesNextTurnBtn");
 const messageSenderSelect = document.getElementById("messageSenderSelect");
 const messageRecipientSelect = document.getElementById("messageRecipientSelect");
 const messagesList = document.getElementById("messagesList");
+const newsView = document.getElementById("newsView");
+const newsTurnLabel = document.getElementById("newsTurnLabel");
+const newsPrevTurnBtn = document.getElementById("newsPrevTurnBtn");
+const newsNextTurnBtn = document.getElementById("newsNextTurnBtn");
+const newsBody = document.getElementById("newsBody");
 const navTimeline = document.getElementById("navTimeline");
 const navTurn = document.getElementById("navTurn");
 const navMap = document.getElementById("navMap");
 const navExperiment = document.getElementById("navExperiment");
 const navMessages = document.getElementById("navMessages");
+const navNews = document.getElementById("navNews");
 const navReports = document.getElementById("navReports");
 const reportsView = document.getElementById("reportsView");
 const reportsTurnLabel = document.getElementById("reportsTurnLabel");
@@ -61,6 +67,9 @@ const reportsPrevTurnBtn = document.getElementById("reportsPrevTurnBtn");
 const reportsNextTurnBtn = document.getElementById("reportsNextTurnBtn");
 const reportAgentSelect = document.getElementById("reportAgentSelect");
 const reportBody = document.getElementById("reportBody");
+const constantsView = document.getElementById("constantsView");
+const constantsBody = document.getElementById("constantsBody");
+const navConstants = document.getElementById("navConstants");
 
 function formatNumber(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
@@ -103,6 +112,8 @@ async function loadData(filename) {
   renderMessages();
   populateReportAgents();
   renderReport();
+  renderNews();
+  renderConstants();
 }
 
 async function loadExperimentFiles() {
@@ -163,12 +174,24 @@ function populateMessageFilters() {
   if (agents.length > 0) {
     messageSenderSelect.value = agents[0];
   }
+  populateMessageRecipients();
+}
+
+function populateMessageRecipients() {
+  if (!state.data) return;
+  const { messages } = state.data;
+  const turnIdx = state.currentTurnIndex;
+  const sender = messageSenderSelect.value;
+  const turnMessages = Array.isArray(messages) ? messages[turnIdx] || {} : {};
+  const senderMsgs = turnMessages[sender] || {};
+  const recipients = Object.keys(senderMsgs);
   messageRecipientSelect.innerHTML = "";
   const allOpt = document.createElement("option");
   allOpt.value = "all";
   allOpt.textContent = "all";
   messageRecipientSelect.appendChild(allOpt);
-  agents.forEach((name) => {
+  recipients.forEach((name) => {
+    if (name === "all") return;
     const opt = document.createElement("option");
     opt.value = name;
     opt.textContent = name;
@@ -441,6 +464,16 @@ function renderMessages() {
   });
 }
 
+function renderNews() {
+  if (!state.data) return;
+  const { turns, news } = state.data;
+  const turnIdx = state.currentTurnIndex;
+  const turnValue = turns[turnIdx];
+  newsTurnLabel.textContent = `Turn ${turnValue}`;
+  const text = Array.isArray(news) ? news[turnIdx] || "No news for this turn." : "No news for this turn.";
+  newsBody.textContent = text;
+}
+
 function renderMap() {
   if (!state.data) return;
   const { territory_names, territory_positions, territory_owners, turns } = state.data;
@@ -476,8 +509,14 @@ dataFileSelects.forEach((select) => {
     if (!messagesView.classList.contains("hidden")) {
       renderMessages();
     }
+    if (!newsView.classList.contains("hidden")) {
+      renderNews();
+    }
     if (!reportsView.classList.contains("hidden")) {
       renderReport();
+    }
+    if (!constantsView.classList.contains("hidden")) {
+      renderConstants();
     }
   });
 });
@@ -493,13 +532,17 @@ function setActiveView(view) {
   mapView.classList.add("hidden");
   experimentView.classList.add("hidden");
   messagesView.classList.add("hidden");
+  newsView.classList.add("hidden");
   reportsView.classList.add("hidden");
+  constantsView.classList.add("hidden");
   navTimeline.classList.remove("active");
   navTurn.classList.remove("active");
   navMap.classList.remove("active");
   navExperiment.classList.remove("active");
   navMessages.classList.remove("active");
+  navNews.classList.remove("active");
   navReports.classList.remove("active");
+  navConstants.classList.remove("active");
 
   if (view === "timeline") {
     timelineView.classList.remove("hidden");
@@ -519,11 +562,20 @@ function setActiveView(view) {
   } else if (view === "messages") {
     messagesView.classList.remove("hidden");
     navMessages.classList.add("active");
+    populateMessageRecipients();
     renderMessages();
+  } else if (view === "news") {
+    newsView.classList.remove("hidden");
+    navNews.classList.add("active");
+    renderNews();
   } else if (view === "reports") {
     reportsView.classList.remove("hidden");
     navReports.classList.add("active");
     renderReport();
+  } else if (view === "constants") {
+    constantsView.classList.remove("hidden");
+    navConstants.classList.add("active");
+    renderConstants();
   }
 }
 
@@ -556,16 +608,21 @@ mapNextTurnBtn.addEventListener("click", () => {
 messagesPrevTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
   state.currentTurnIndex = Math.max(0, state.currentTurnIndex - 1);
+  populateMessageRecipients();
   renderMessages();
 });
 
 messagesNextTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
   state.currentTurnIndex = Math.min(state.data.turns.length - 1, state.currentTurnIndex + 1);
+  populateMessageRecipients();
   renderMessages();
 });
 
-messageSenderSelect.addEventListener("change", () => renderMessages());
+messageSenderSelect.addEventListener("change", () => {
+  populateMessageRecipients();
+  renderMessages();
+});
 messageRecipientSelect.addEventListener("change", () => renderMessages());
 
 navTimeline.addEventListener("click", () => setActiveView("timeline"));
@@ -573,7 +630,9 @@ navTurn.addEventListener("click", () => setActiveView("turn"));
 navMap.addEventListener("click", () => setActiveView("map"));
 navExperiment.addEventListener("click", () => setActiveView("experiment"));
 navMessages.addEventListener("click", () => setActiveView("messages"));
+navNews.addEventListener("click", () => setActiveView("news"));
 navReports.addEventListener("click", () => setActiveView("reports"));
+navConstants.addEventListener("click", () => setActiveView("constants"));
 
 function renderExperimentChart() {
   const file = experimentFileSelect.value;
@@ -609,6 +668,15 @@ function renderReport() {
   reportBody.textContent = lines.join("\n");
 }
 
+function renderConstants() {
+  if (!state.data) return;
+  const constants = state.data.constants || {};
+  const lines = Object.keys(constants)
+    .sort()
+    .map((key) => `${key}: ${constants[key]}`);
+  constantsBody.textContent = lines.join("\n") || "No constants available.";
+}
+
 reportsPrevTurnBtn.addEventListener("click", () => {
   if (!state.data) return;
   state.currentTurnIndex = Math.max(0, state.currentTurnIndex - 1);
@@ -622,6 +690,18 @@ reportsNextTurnBtn.addEventListener("click", () => {
 });
 
 reportAgentSelect.addEventListener("change", () => renderReport());
+
+newsPrevTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.max(0, state.currentTurnIndex - 1);
+  renderNews();
+});
+
+newsNextTurnBtn.addEventListener("click", () => {
+  if (!state.data) return;
+  state.currentTurnIndex = Math.min(state.data.turns.length - 1, state.currentTurnIndex + 1);
+  renderNews();
+});
 
 loadFiles().catch((err) => {
   console.error(err);

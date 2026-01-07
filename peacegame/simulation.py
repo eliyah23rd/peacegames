@@ -158,6 +158,7 @@ class SimulationEngine:
         self.last_money_per_territory: int = 0
         self.last_damage_per_attack_mil: int = 0
         self.last_defense_destroy_factor: int = 0
+        self.constants_cache: Dict[str, Any] = {}
         self.per_turn_metrics: Dict[str, Dict[str, List[int]]] = {}
         self.turns_seen: List[int] = []
         self.history_summary: Dict[str, str] = {}
@@ -171,6 +172,7 @@ class SimulationEngine:
         self.capital_territories: Dict[str, str] = {}
         self.per_turn_messages: List[Dict[str, Dict[str, str]]] = []
         self.per_turn_reports: List[Dict[str, str]] = []
+        self.per_turn_news: List[str] = []
 
     def close(self) -> None:
         self._log_fp.close()
@@ -197,6 +199,7 @@ class SimulationEngine:
         self.log(f"Initial mils: {sorted(agent_mils.items())}")
         self.log(f"Initial welfare: {sorted(agent_welfare.items())}")
         self.log("Constants:")
+        self.constants_cache = dict(constants)
         for key in sorted(constants.keys()):
             val = constants[key]
             if isinstance(val, float):
@@ -277,6 +280,7 @@ class SimulationEngine:
         self.per_turn_territory_owners = []
         self.per_turn_messages = []
         self.per_turn_reports = []
+        self.per_turn_news = []
 
     def run_turn(
         self,
@@ -512,6 +516,8 @@ class SimulationEngine:
             d_gross_income=d_gross_income,
             attack_clamps=attack_clamps,
             d_mils_disbanded_voluntary=d_mils_disbanded_voluntary,
+            agent_mils=start_mils,
+            d_defense_mils=d_defense_mils,
         )
         legal_inbound_after, legal_outbound_after = compute_legal_cession_lists(
             agent_territories,
@@ -570,6 +576,7 @@ class SimulationEngine:
         )
         self.per_turn_messages.append(d_messages_sent)
         self.per_turn_reports.append(dict(self.last_agent_reports))
+        self.per_turn_news.append(self.last_news_report)
         self._write_round_data()
         if self.total_turns is not None and turn == self.total_turns - 1:
             self._render_visualization()
@@ -616,6 +623,8 @@ class SimulationEngine:
         d_gross_income: Dict[str, int],
         attack_clamps: Dict[str, tuple[int, int]],
         d_mils_disbanded_voluntary: Dict[str, int],
+        agent_mils: Dict[str, int],
+        d_defense_mils: Dict[str, int],
     ) -> str:
         lines: List[str] = []
 
@@ -628,26 +637,66 @@ class SimulationEngine:
                     attack_lines.append(f" - {attacker} -> {target}: {mils}")
         lines.extend(attack_lines if attack_lines else [" - none"])
 
-        lines.append("Damage to attackers:")
-        dmg_lines = []
-        for attacker in sorted(d_mils_lost_by_attacker.keys()):
-            dmg_lines.append(f" - {attacker}: {d_mils_lost_by_attacker[attacker]}")
-        lines.extend(dmg_lines if dmg_lines else [" - none"])
+        lines.append("Attacks Cap:")
+        clamp_lines = []
+        for attacker in sorted(attack_clamps.keys()):
+            before, after = attack_clamps[attacker]
+            clamp_lines.append(f" - {attacker}: {before} -> {after}")
+        lines.extend(clamp_lines if clamp_lines else [" - none"])
 
-        lines.append("Income damage:")
-        income_lines = []
+        lines.append("Mils lost in attacks:")
+        loss_lines = []
+        for attacker in sorted(d_mils_lost_by_attacker.keys()):
+            amt = d_mils_lost_by_attacker[attacker]
+            if amt > 0:
+                loss_lines.append(f" - {attacker}: {amt}")
+        lines.extend(loss_lines if loss_lines else [" - none"])
+
+        lines.append("Damage inflicted by attacks:")
+        damage_lines = []
         for agent in sorted(d_total_damage_received.keys()):
-            income_lines.append(f" - {agent}: {d_total_damage_received[agent]}")
-        lines.extend(income_lines if income_lines else [" - none"])
+            dmg = d_total_damage_received[agent]
+            if dmg > 0:
+                damage_lines.append(f" - {agent}: {dmg}")
+        lines.extend(damage_lines if damage_lines else [" - none"])
 
         lines.append("Damage cap:")
         cap_lines = []
         for agent in sorted(d_total_damage_received.keys()):
-            if d_total_damage_received[agent] > d_gross_income.get(agent, 0):
+            if d_total_damage_received[agent] >= d_gross_income.get(agent, 0):
                 cap_lines.append(
                     f" - {agent}: capped at {d_gross_income.get(agent, 0)}"
                 )
         lines.extend(cap_lines if cap_lines else [" - none"])
+
+        lines.append("Trade grants:")
+        grant_lines = []
+        for receiver in sorted(d_grants_received.keys()):
+            for giver in sorted(d_grants_received[receiver].keys()):
+                amt = d_grants_received[receiver][giver]
+                if amt > 0:
+                    grant_lines.append(f" - {giver} -> {receiver}: {amt}")
+        lines.extend(grant_lines if grant_lines else [" - none"])
+
+        lines.append("Income grants:")
+        lines.extend([" - none"])
+
+        lines.append("Territory cessions:")
+        cession_lines = []
+        for giver in sorted(d_territory_cession.keys()):
+            for receiver in sorted(d_territory_cession[giver].keys()):
+                terrs = d_territory_cession[giver][receiver]
+                if terrs:
+                    cession_lines.append(
+                        f" - {giver} -> {receiver}: {', '.join(sorted(terrs))}"
+                    )
+        lines.extend(cession_lines if cession_lines else [" - none"])
+
+        lines.append("Army status:")
+        for agent in sorted(agent_mils.keys()):
+            lines.append(
+                f" - {agent}: army={agent_mils.get(agent, 0)}, defense_alloc={d_defense_mils.get(agent, 0)}"
+            )
 
         lines.append("Upkeep disband:")
         disband_lines = []
@@ -672,34 +721,9 @@ class SimulationEngine:
         for sender in sorted(d_messages_sent.keys()):
             for recipient in sorted(d_messages_sent[sender].keys()):
                 msg = d_messages_sent[sender][recipient]
-                msg_lines.append(f" - {sender} -> {recipient}: {msg}")
+                if msg:
+                    msg_lines.append(f" - {sender} -> {recipient}: {msg}")
         lines.extend(msg_lines if msg_lines else [" - none"])
-
-        lines.append("Grants:")
-        grant_lines = []
-        for receiver in sorted(d_grants_received.keys()):
-            for giver in sorted(d_grants_received[receiver].keys()):
-                amt = d_grants_received[receiver][giver]
-                grant_lines.append(f" - {giver} -> {receiver}: {amt}")
-        lines.extend(grant_lines if grant_lines else [" - none"])
-
-        lines.append("Cessions:")
-        cession_lines = []
-        for giver in sorted(d_territory_cession.keys()):
-            for receiver in sorted(d_territory_cession[giver].keys()):
-                terrs = d_territory_cession[giver][receiver]
-                if terrs:
-                    cession_lines.append(
-                        f" - {giver} -> {receiver}: {', '.join(sorted(terrs))}"
-                    )
-        lines.extend(cession_lines if cession_lines else [" - none"])
-
-        lines.append("Attack limits:")
-        clamp_lines = []
-        for attacker in sorted(attack_clamps.keys()):
-            before, after = attack_clamps[attacker]
-            clamp_lines.append(f" - {attacker}: {before} -> {after}")
-        lines.extend(clamp_lines if clamp_lines else [" - none"])
 
         return "\n".join(lines)
 
@@ -765,6 +789,7 @@ class SimulationEngine:
             purchase_price = self.last_purchase_price
             lines = [
                 f"Income: gross={gross} (territories * {self.last_money_per_territory}), damage={damage} (attacks * {self.last_damage_per_attack_mil}), capped={damage_capped}, wasted={damage_wasted}",
+                f"Available money: {available} = gross({gross}) - damage({damage}) - upkeep({upkeep}) - purchases({purchase_cost}) - grants_paid({grants_paid})",
                 f"Costs: upkeep={upkeep} ({start} units * {upkeep_price}), purchases={purchase_cost} ({purchased} units * {purchase_price})",
                 "Grants: received={gr}, paid={gp}, trade_bonus={tb}, trade_factor={tf}".format(
                     gr=grants_received,
@@ -933,6 +958,8 @@ class SimulationEngine:
             "territory_owners": self.per_turn_territory_owners,
             "messages": self.per_turn_messages,
             "reports": self.per_turn_reports,
+            "news": self.per_turn_news,
+            "constants": self.constants_cache,
         }
         out_dir = Path("round_data")
         log_stem = Path(self.log_path).stem
