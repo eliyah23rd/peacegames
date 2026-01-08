@@ -9,7 +9,7 @@
     "food": 2
   },
   "resource_peak_max": 3,
-  "resource_adjacent_pct": 40,
+  "resource_adjacent_pct": 30,
   "resource_one_pct": 50,
   "constants": {
     "c_money_per_territory": 10,
