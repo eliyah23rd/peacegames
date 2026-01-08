@@ -8,7 +8,7 @@ from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 
@@ -16,6 +16,65 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 if str(BASE_DIR.parent) not in sys.path:
     sys.path.insert(0, str(BASE_DIR.parent))
+
+def _build_capital_pies(payload: Dict[str, object], turn_idx: int) -> Dict[str, Dict[str, float]]:
+    ledger_vars = payload.get("ledger_vars") or []
+    data = payload.get("data") or []
+    agents = payload.get("agents") or []
+    capitals = payload.get("capitals") or {}
+    constants = payload.get("constants") or {}
+    if not isinstance(ledger_vars, list) or not isinstance(data, list) or not agents or not capitals:
+        return {}
+    required = [
+        "gross_income",
+        "effective_income",
+        "damage_received",
+        "upkeep_cost",
+        "mils_purchased",
+        "money_grants_received",
+    ]
+    if any(key not in ledger_vars for key in required):
+        return {}
+    idx = {key: ledger_vars.index(key) for key in required}
+    trade_factor = float(constants.get("c_trade_factor", 1.0))
+    purchase_price = float(constants.get("c_mil_purchase_price", 0.0))
+    pies: Dict[str, Dict[str, float]] = {}
+    for agent_idx, agent in enumerate(agents):
+        if agent_idx >= len(data):
+            continue
+        rows = data[agent_idx]
+        if not isinstance(rows, list) or turn_idx >= len(rows):
+            continue
+        row = rows[turn_idx]
+        if not isinstance(row, list):
+            continue
+        if len(row) <= max(idx.values()):
+            continue
+        gross = float(row[idx["gross_income"]])
+        effective = float(row[idx["effective_income"]])
+        damage = float(row[idx["damage_received"]])
+        upkeep = float(row[idx["upkeep_cost"]])
+        mils_purchased = float(row[idx["mils_purchased"]])
+        grants_received = float(row[idx["money_grants_received"]])
+        total = gross + grants_received * trade_factor
+        if total <= 0:
+            continue
+        lost = max(gross - effective, 0.0)
+        purchases = max(mils_purchased * purchase_price, 0.0)
+        upkeep = max(upkeep, 0.0)
+        damage = max(damage, 0.0)
+        welfare = max(total - (lost + purchases + upkeep + damage), 0.0)
+        capital = capitals.get(agent)
+        if not capital:
+            continue
+        pies[capital] = {
+            "lost": lost,
+            "purchases": purchases,
+            "upkeep": upkeep,
+            "damage": damage,
+            "welfare": welfare,
+        }
+    return pies
 
 
 class RoundDataHandler(SimpleHTTPRequestHandler):
@@ -190,7 +249,9 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
                 agent: palette[idx % len(palette)] for idx, agent in enumerate(agents)
             }
 
-            from peacegame.territory_graph import render_ownership_png
+            from peacegame.territory_graph import PIE_COLORS, render_ownership_png
+
+            capital_pies = _build_capital_pies(payload, turn_idx)
 
             img = render_ownership_png(
                 territory_names,
@@ -198,6 +259,8 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
                 owners,
                 owner_colors,
                 territory_resources=territory_resources,
+                capital_pies=capital_pies,
+                pie_colors=PIE_COLORS,
             )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "image/png")

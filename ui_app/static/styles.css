@@ -188,6 +188,15 @@ h2 {
   font-size: 13px;
 }
 
+.legend-title {
+  flex-basis: 100%;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
 .legend span {
   display: inline-flex;
   align-items: center;

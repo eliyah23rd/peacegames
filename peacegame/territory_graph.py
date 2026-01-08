@@ -8,6 +8,15 @@ from typing import Dict, Iterable, List, Set, Tuple
 
 Coord = Tuple[int, int]
 
+PIE_ORDER = ["lost", "purchases", "upkeep", "damage", "welfare"]
+PIE_COLORS = {
+    "lost": "#b8b1a6",
+    "purchases": "#f0a24b",
+    "upkeep": "#d7c24b",
+    "damage": "#d46a6a",
+    "welfare": "#5db07e",
+}
+
 
 def _adjacent(coord: Coord) -> List[Coord]:
     x, y = coord
@@ -285,6 +294,8 @@ def render_ownership_png(
     owner_colors: Dict[str, str],
     *,
     territory_resources: Dict[str, Dict[str, int]] | None = None,
+    capital_pies: Dict[str, Dict[str, float]] | None = None,
+    pie_colors: Dict[str, str] | None = None,
     out_path: Path | None = None,
 ) -> bytes:
     import os
@@ -293,7 +304,7 @@ def render_ownership_png(
     import io
     import matplotlib.image as mpimg
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Polygon
+    from matplotlib.patches import Circle, Polygon, Wedge
     from matplotlib.path import Path as MplPath
     from matplotlib.patches import PathPatch
 
@@ -347,6 +358,47 @@ def render_ownership_png(
 
     icon_cache: Dict[str, any] = {}
     icons_dir = Path(__file__).resolve().parent.parent / "icons"
+    pie_colors = pie_colors or PIE_COLORS
+
+    def _draw_pie(name: str, x: float, y: float) -> None:
+        if not capital_pies:
+            return
+        slices = capital_pies.get(name)
+        if not slices:
+            return
+        total = sum(max(float(value), 0.0) for value in slices.values())
+        if total <= 0:
+            return
+        center = (x + 0.25, y + 0.25)
+        radius = 0.22
+        start = 90.0
+        for key in PIE_ORDER:
+            value = max(float(slices.get(key, 0.0)), 0.0)
+            if value <= 0:
+                continue
+            angle = 360.0 * (value / total)
+            wedge = Wedge(
+                center,
+                radius,
+                start,
+                start + angle,
+                facecolor=pie_colors.get(key, "#cccccc"),
+                edgecolor="#4a423c",
+                linewidth=0.4,
+                zorder=6,
+            )
+            ax.add_patch(wedge)
+            start += angle
+        ax.add_patch(
+            Circle(
+                center,
+                radius,
+                fill=False,
+                edgecolor="#4a423c",
+                linewidth=0.5,
+                zorder=6,
+            )
+        )
 
     def _draw_resource_icons(name: str, x: float, y: float) -> None:
         if not territory_resources:
@@ -429,6 +481,7 @@ def render_ownership_png(
         )
         ax.add_patch(patch)
         _draw_resource_icons(name, x, y)
+        _draw_pie(name, x, y)
         if len(territory_names) <= 40:
             ax.text(
                 x + 0.5,

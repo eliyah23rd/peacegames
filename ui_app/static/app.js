@@ -19,6 +19,14 @@ const palette = [
   "#f58a4b",
 ];
 
+const pieLegendItems = [
+  { key: "lost", label: "Lost gross (resources)", color: "#b8b1a6" },
+  { key: "purchases", label: "Purchases", color: "#f0a24b" },
+  { key: "upkeep", label: "Upkeep", color: "#d7c24b" },
+  { key: "damage", label: "Damage", color: "#d46a6a" },
+  { key: "welfare", label: "Welfare", color: "#5db07e" },
+];
+
 const dataFileSelects = document.querySelectorAll(".dataFileSelect");
 const metricSelect = document.getElementById("metricSelect");
 const chartCanvas = document.getElementById("chartCanvas");
@@ -37,7 +45,6 @@ const mapTurnLabel = document.getElementById("mapTurnLabel");
 const mapPrevTurnBtn = document.getElementById("mapPrevTurnBtn");
 const mapNextTurnBtn = document.getElementById("mapNextTurnBtn");
 const mapLegend = document.getElementById("mapLegend");
-const mapCapitals = document.getElementById("mapCapitals");
 const experimentView = document.getElementById("experimentView");
 const experimentFileSelect = document.getElementById("experimentFileSelect");
 const experimentChartSelect = document.getElementById("experimentChartSelect");
@@ -501,12 +508,16 @@ function renderNews() {
 
 function renderMap() {
   if (!state.data) return;
-  const { territory_names, territory_positions, territory_owners, turns, capitals } = state.data;
+  const { territory_names, territory_positions, territory_owners, turns } = state.data;
   if (!territory_names || !territory_positions || !territory_owners) return;
 
   const turnIdx = state.currentTurnIndex;
   mapTurnLabel.textContent = `Turn ${turns[turnIdx]}`;
   mapLegend.innerHTML = "";
+  const ownershipTitle = document.createElement("span");
+  ownershipTitle.className = "legend-title";
+  ownershipTitle.textContent = "Ownership";
+  mapLegend.appendChild(ownershipTitle);
   state.data.agents.forEach((agent, idx) => {
     const item = document.createElement("span");
     const dot = document.createElement("i");
@@ -515,15 +526,19 @@ function renderMap() {
     item.appendChild(document.createTextNode(agent));
     mapLegend.appendChild(item);
   });
-  const capLines = [];
-  if (capitals) {
-    Object.keys(capitals)
-      .sort()
-      .forEach((agent) => {
-        capLines.push(`${agent}: ${capitals[agent] || "none"}`);
-      });
-  }
-  mapCapitals.textContent = capLines.length ? `Capitals:\n${capLines.join("\n")}` : "Capitals: none";
+  const pieTitle = document.createElement("span");
+  pieTitle.className = "legend-title";
+  pieTitle.textContent = "Capital income breakdown";
+  mapLegend.appendChild(pieTitle);
+  pieLegendItems.forEach((entry) => {
+    const item = document.createElement("span");
+    const swatch = document.createElement("i");
+    swatch.style.background = entry.color;
+    swatch.style.borderRadius = "2px";
+    item.appendChild(swatch);
+    item.appendChild(document.createTextNode(entry.label));
+    mapLegend.appendChild(item);
+  });
 
   const fileName = state.currentFile;
   const turnValue = turns[turnIdx];

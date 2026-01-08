@@ -31,6 +31,7 @@ def main() -> int:
     territory_owners = payload.get("territory_owners", [])
     agents = payload.get("agents", [])
     territory_resources = payload.get("territory_resources", {})
+    capitals = payload.get("capitals", {})
 
     if not territory_names or not territory_owners:
         print(f"Missing territory data in {data_path.name}")
@@ -57,12 +58,25 @@ def main() -> int:
         agent: palette[idx % len(palette)] for idx, agent in enumerate(agents)
     }
 
+    capital_pies = {}
+    if capitals and agents:
+        capital = capitals.get(agents[0])
+        if capital:
+            capital_pies[capital] = {
+                "lost": 1.0,
+                "purchases": 1.0,
+                "upkeep": 1.0,
+                "damage": 1.0,
+                "welfare": 1.0,
+            }
+
     img = render_ownership_png(
         territory_names,
         positions,
         owners,
         owner_colors,
         territory_resources=territory_resources,
+        capital_pies=capital_pies,
     )
     if not img:
         print("Map render returned empty image.")
