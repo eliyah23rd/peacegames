@@ -1,5 +1,6 @@
 import json
 import unittest
+from pathlib import Path
 
 from peacegame.resource_simulation import (
     RESOURCE_TYPES,
@@ -8,6 +9,7 @@ from peacegame.resource_simulation import (
     _resource_ratios,
     generate_territory_resources,
 )
+from peacegame.territory_graph import load_territory_names
 
 
 class ScriptedAgent:
@@ -22,9 +24,16 @@ class ScriptedAgent:
 
 class ResourceSimulationTests(unittest.TestCase):
     def test_seed_determinism_and_capital_resources(self) -> None:
-        initial_territories = {"A": {"T1", "T2"}, "B": {"T3", "T4"}}
-        initial_mils = {"A": 0, "B": 0}
-        initial_welfare = {"A": 0, "B": 0}
+        agents = ["A", "B", "C", "D"]
+        names = load_territory_names(Path("names") / "territories.txt")
+        if len(names) < 24:
+            names.extend([f"Terr{i}" for i in range(len(names), 24)])
+        names = names[:24]
+        initial_territories = {agent: set() for agent in agents}
+        for idx, name in enumerate(names):
+            initial_territories[agents[idx % len(agents)]].add(name)
+        initial_mils = {agent: 0 for agent in agents}
+        initial_welfare = {agent: 0 for agent in agents}
 
         def snapshot() -> dict:
             engine = ResourceSimulationEngine(run_label="resource_seed_test")
@@ -32,7 +41,7 @@ class ResourceSimulationTests(unittest.TestCase):
                 agent_territories=initial_territories,
                 agent_mils=initial_mils,
                 agent_welfare=initial_welfare,
-                seed=7,
+                seed=43,
                 use_generated_territories=True,
                 resource_peaks={"energy": 1, "minerals": 1, "food": 1},
                 resource_peak_max=3,
@@ -43,19 +52,23 @@ class ResourceSimulationTests(unittest.TestCase):
                 res = engine.territory_resources.get(terr, {})
                 for rtype in RESOURCE_TYPES:
                     self.assertEqual(res.get(rtype, 0), 0)
+            ownership = {k: sorted(list(v)) for k, v in engine.agent_territories.items()}
+            total_assigned = sum(len(v) for v in ownership.values())
+            self.assertEqual(total_assigned, 24)
+            self.assertTrue(all(len(v) > 0 for v in ownership.values()))
             snap = {
-                "graph": engine.territory_graph,
+                "graph": {k: sorted(list(v)) for k, v in engine.territory_graph.items()},
                 "positions": engine.territory_positions,
-                "ownership": engine.agent_territories,
-                "capitals": engine.capital_territories,
+                "ownership": ownership,
+                "capitals": dict(engine.capital_territories),
                 "resources": engine.territory_resources,
             }
             engine.close()
             return snap
 
         first = snapshot()
-        second = snapshot()
-        self.assertEqual(first, second)
+        for _ in range(4):
+            self.assertEqual(first, snapshot())
     def _run_attack_scenario(self, *, attacker_mils: int, defender_mils: int) -> int:
         engine = ResourceSimulationEngine(run_label="resource_attack_test")
         constants = {

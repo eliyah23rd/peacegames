@@ -11,6 +11,7 @@ TEST_PREFIXES = (
     "resource_grant_test",
     "resource_attack_test",
     "resource_seed_test",
+    "resource_welfare_formula",
 )
 
 

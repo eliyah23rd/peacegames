@@ -40,7 +40,7 @@ def assign_territories_round_robin(
 ) -> Dict[str, Set[str]] | tuple[Dict[str, Set[str]], Dict[str, str]]:
     """Assign territories by farthest-first seeds, then round-robin adjacency growth."""
     rng = random.Random(seed)
-    territories = list(graph.keys())
+    territories = sorted(graph.keys())
     if not territories or not agent_names:
         return {agent: set() for agent in agent_names}
 
@@ -54,10 +54,10 @@ def assign_territories_round_robin(
     for _ in range(1, min(len(agent_names), len(territories))):
         best = None
         best_dist = -1
-        for terr in list(unassigned):
+        for terr in sorted(unassigned):
             pos = positions[terr]
             min_dist = min(manhattan(pos, positions[s]) for s in seeds)
-            if min_dist > best_dist:
+            if min_dist > best_dist or (min_dist == best_dist and (best is None or terr < best)):
                 best_dist = min_dist
                 best = terr
         if best is None:
@@ -78,7 +78,7 @@ def assign_territories_round_robin(
         idx += 1
 
         frontier = set()
-        for terr in assigned[agent]:
+        for terr in sorted(assigned[agent]):
             frontier |= graph.get(terr, set())
         frontier &= unassigned
 
@@ -90,13 +90,13 @@ def assign_territories_round_robin(
         # Prefer territories that open more future options.
         best = None
         best_score = -1
-        for terr in frontier:
+        for terr in sorted(frontier):
             score = len(graph.get(terr, set()) & unassigned)
-            if score > best_score:
+            if score > best_score or (score == best_score and (best is None or terr < best)):
                 best_score = score
                 best = terr
         if best is None:
-            best = rng.choice(list(frontier))
+            best = rng.choice(sorted(frontier))
         assigned[agent].add(best)
         unassigned.remove(best)
 
@@ -164,7 +164,7 @@ def build_territory_graph(
     shape_mode: str = "elbow",
 ) -> Tuple[Dict[str, Set[str]], Dict[str, Coord]]:
     """Lay out territories on a grid, biasing for multi-adjacency to reach target avg degree."""
-    names_list = [name for name in names if name]
+    names_list = sorted([name for name in names if name])
     if not names_list:
         return {}, {}
 
@@ -189,7 +189,7 @@ def build_territory_graph(
 
     for idx, name in enumerate(names_list[1:], start=1):
         candidates: Dict[Coord, int] = {}
-        for coord in occupied:
+        for coord in sorted(occupied):
             for adj in _adjacent(coord):
                 if adj in occupied:
                     continue
@@ -206,7 +206,7 @@ def build_territory_graph(
             active_dirs = dir_sequence[:3]
         elif idx >= int(len(names_list) * turn_steps[0]):
             active_dirs = dir_sequence[:2]
-        for coord, neighbor_count in candidates.items():
+        for coord, neighbor_count in sorted(candidates.items()):
             weight = max(1, neighbor_count * neighbor_count)
             # Bias elongation by expanding along preferred directions.
             for direction in active_dirs:
