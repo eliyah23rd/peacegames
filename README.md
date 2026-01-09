@@ -4,9 +4,9 @@ Multi-agent simulation sandbox for exploring cooperation, conflict, and economic
 
 ## Quick Start
 
-- Tests: `python run_all_tests.py`
-- UI server: `python ui_app/app.py`
-- UI in browser: `http://127.0.0.1:8000`
+1. Run tests: `python run_all_tests.py`
+2. Run a sim (example): `python -m run_llm_resource_simulation initial_setup/resource_demo_4p.json --model gpt-5.1`
+3. Start UI: `python ui_app/app.py` and open `http://127.0.0.1:8000`
 
 ## Concepts
 
@@ -16,6 +16,26 @@ The simulation engine models a set of agents competing or cooperating across a s
 - **Resource sim**: adds energy/minerals/food constraints and trade, affecting effective income.
 
 The project is designed to support reproducible debugging (deterministic seeds) as well as randomized experimentation.
+
+## Environment Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Set your API key for LLM runs:
+
+```bash
+export OPENAI_API_KEY="..."
+```
+
+If you want to run without network calls, set:
+
+```bash
+export PEACEGAME_LLM_DUMMY=1
+```
 
 ## Running Tests
 
@@ -72,4 +92,3 @@ The UI lets you explore timelines, per-turn data, map view, global news, individ
 - `tests/`: unit and component tests
 - `ui_app/`: local UI server + frontend
 - `logs/`, `round_data/`, `visualizations/`: generated outputs
-
