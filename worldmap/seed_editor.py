@@ -120,6 +120,12 @@ def main() -> None:
     parser.add_argument("--base-json", default="world_territories_32.json")
     parser.add_argument("--overrides", default="seed_overrides.json")
     parser.add_argument("--name-overrides", default="name_overrides.json")
+    parser.add_argument(
+        "--mode",
+        choices=["move", "name"],
+        default="move",
+        help="move=drag seeds, name=edit names only",
+    )
     args = parser.parse_args()
 
     outline_path = Path(args.outline)
@@ -146,7 +152,10 @@ def main() -> None:
 
     fig, ax = plt.subplots(figsize=(10, 5))
     fig.subplots_adjust(bottom=0.12)
-    ax.set_title("Drag a seed, release to redraw")
+    if args.mode == "name":
+        ax.set_title("Click a seed, edit name, save")
+    else:
+        ax.set_title("Drag a seed, release to redraw")
     ax.axis("off")
     image_artist = ax.imshow(filled, interpolation="nearest")
 
@@ -174,10 +183,13 @@ def main() -> None:
 
     selected = {"idx": None, "moved": False}
 
-    name_ax = fig.add_axes([0.1, 0.02, 0.6, 0.06])
-    name_box = TextBox(name_ax, "Territory name", initial="")
-    save_ax = fig.add_axes([0.72, 0.02, 0.18, 0.06])
-    save_button = Button(save_ax, "Save name")
+    name_box = None
+    save_button = None
+    if args.mode == "name":
+        name_ax = fig.add_axes([0.1, 0.02, 0.6, 0.06])
+        name_box = TextBox(name_ax, "Territory name", initial="")
+        save_ax = fig.add_axes([0.72, 0.02, 0.18, 0.06])
+        save_button = Button(save_ax, "Save name")
 
     def _update_borders() -> None:
         nonlocal centers, labels, borders, names
@@ -200,13 +212,17 @@ def main() -> None:
         if dists[idx] < 15 ** 2:
             selected["idx"] = idx
             selected["moved"] = False
-            name_box.set_val(names[idx])
+            if name_box is not None:
+                name_box.set_val(names[idx])
         else:
             selected["idx"] = None
             selected["moved"] = False
-            name_box.set_val("")
+            if name_box is not None:
+                name_box.set_val("")
 
     def on_motion(event):
+        if args.mode != "move":
+            return
         if selected["idx"] is None or event.xdata is None or event.ydata is None:
             return
         selected["moved"] = True
@@ -215,6 +231,8 @@ def main() -> None:
         fig.canvas.draw_idle()
 
     def on_release(event):
+        if args.mode != "move":
+            return
         if selected["idx"] is None:
             return
         idx = selected["idx"]
@@ -227,6 +245,8 @@ def main() -> None:
         _save_overrides(overrides_path, centers)
 
     def on_save_name(_event):
+        if args.mode != "name" or name_box is None:
+            return
         idx = selected["idx"]
         if idx is None:
             return
@@ -241,7 +261,8 @@ def main() -> None:
     fig.canvas.mpl_connect("button_press_event", on_press)
     fig.canvas.mpl_connect("button_release_event", on_release)
     fig.canvas.mpl_connect("motion_notify_event", on_motion)
-    save_button.on_clicked(on_save_name)
+    if save_button is not None:
+        save_button.on_clicked(on_save_name)
 
     plt.show()
 
