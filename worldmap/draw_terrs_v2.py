@@ -559,6 +559,28 @@ def _score_labels(labels: np.ndarray, num_seeds: int) -> float:
         return float("inf")
     return float(areas.max() / areas.min())
 
+def _compute_labels(
+    centers: list[tuple[int, int]],
+    land: np.ndarray,
+    comp_lab: np.ndarray,
+    comp_sizes: np.ndarray,
+) -> np.ndarray:
+    comp_id_by_seed = seed_component_ids(centers, comp_lab)
+    labels = per_component_assignment(
+        land,
+        centers,
+        comp_lab,
+        comp_id_by_seed,
+        noise_seed=999,
+    )
+    labels = assign_small_components(
+        labels,
+        comp_lab,
+        comp_sizes,
+        centers,
+    )
+    return labels
+
 def build_layout(
     land: np.ndarray,
     comp_lab: np.ndarray,
@@ -660,6 +682,7 @@ def main():
     in_path = Path("world_outline_1600x800.png")
     if not in_path.exists():
         raise FileNotFoundError("Put world_outline_1600x800.png in this folder first.")
+    overrides_path = Path("seed_overrides.json")
 
     # 1) Read barrier map and split Africa/Eurasia with Suez barrier
     barrier = load_bw(in_path, threshold=200)
@@ -674,7 +697,20 @@ def main():
         print("Warning: fewer components than expected. Still continuing.")
 
     # 4) Place seeds (initial), then relax per component to spread them
-    centers, labels = build_layout(land, comp_lab)
+    centers = None
+    if overrides_path.exists():
+        overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
+        centers = []
+        for tid, _name, _region in TERRITORIES:
+            if tid not in overrides:
+                raise KeyError(f"Missing seed override for {tid}")
+            raw = overrides[tid]
+            centers.append((int(raw[0]), int(raw[1])))
+    if centers is None:
+        centers, labels = build_layout(land, comp_lab)
+    else:
+        comp_sizes = np.bincount(comp_lab.ravel())
+        labels = _compute_labels(centers, land, comp_lab, comp_sizes)
 
     # 5) Borders
     borders = compute_borders(labels, land)
