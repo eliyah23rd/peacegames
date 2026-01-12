@@ -23,6 +23,18 @@ def _build_palette(count: int) -> list[tuple[int, int, int]]:
         colors.append((int(r * 255), int(g * 255), int(b * 255)))
     return colors
 
+def load_name_overrides(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+def build_names(overrides_path: Path) -> list[str]:
+    overrides = load_name_overrides(overrides_path)
+    names = []
+    for tid, name, _region in TERRITORIES:
+        names.append(overrides.get(tid, name))
+    return names
+
 # ----------------------------
 # 32 territories (more in Africa + N. America; 2 in Antarctica)
 # ----------------------------
@@ -646,7 +658,15 @@ def add_name_labels(
     for (x, y), name in zip(centers, names):
         if x == 0 and y == 0:
             continue
-        draw.text((x + 4, y + 4), name, fill=(0, 0, 0), font=font)
+        text = str(name)
+        tx, ty = x + 4, y + 4
+        bbox = draw.textbbox((tx, ty), text, font=font)
+        pad = 2
+        draw.rectangle(
+            [bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad],
+            fill=(255, 255, 255),
+        )
+        draw.text((tx, ty), text, fill=(0, 0, 0), font=font)
     return np.array(pil)
 
 def build_layout(
@@ -751,6 +771,7 @@ def main():
     if not in_path.exists():
         raise FileNotFoundError("Put world_outline_1600x800.png in this folder first.")
     overrides_path = Path("seed_overrides.json")
+    name_overrides_path = Path("name_overrides.json")
 
     # 1) Read barrier map and split Africa/Eurasia with Suez barrier
     barrier = load_bw(in_path, threshold=200)
@@ -791,7 +812,7 @@ def main():
     out_map[borders] = 0
     out_map = np.where(out_map < 200, 0, 255).astype(np.uint8)
     Image.fromarray(out_map, mode="L").convert("RGB").save("world_map_32_internal.png", optimize=True)
-    names = [name for _tid, name, _region in TERRITORIES]
+    names = build_names(name_overrides_path)
     label_centers = compute_label_centers(labels)
     labeled = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),

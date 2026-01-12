@@ -33,6 +33,7 @@ def _select_backend() -> str:
 _select_backend()
 
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button, TextBox
 
 BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR.parent) not in sys.path:
@@ -73,9 +74,18 @@ def _load_overrides(path: Path) -> Dict[str, List[int]]:
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
 
+def _load_name_overrides(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
 
 def _save_overrides(path: Path, centers: List[Coord]) -> None:
     data = {tid: [int(x), int(y)] for (tid, _name, _region), (x, y) in zip(gen.TERRITORIES, centers)}
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+def _save_name_overrides(path: Path, names: List[str]) -> None:
+    data = {tid: name for (tid, _name, _region), name in zip(gen.TERRITORIES, names)}
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -109,16 +119,22 @@ def main() -> None:
     parser.add_argument("--outline", default="world_outline_1600x800.png")
     parser.add_argument("--base-json", default="world_territories_32.json")
     parser.add_argument("--overrides", default="seed_overrides.json")
+    parser.add_argument("--name-overrides", default="name_overrides.json")
     args = parser.parse_args()
 
     outline_path = Path(args.outline)
     base_json = Path(args.base_json)
     overrides_path = Path(args.overrides)
+    name_overrides_path = Path(args.name_overrides)
     if not outline_path.exists():
         raise FileNotFoundError(f"Missing outline PNG: {outline_path}")
 
     overrides = _load_overrides(overrides_path)
+    name_overrides = _load_name_overrides(name_overrides_path)
     centers = _load_centers(base_json, overrides)
+    names = []
+    for tid, name, _region in gen.TERRITORIES:
+        names.append(name_overrides.get(tid, name))
 
     barrier = gen.load_bw(outline_path, threshold=200)
     barrier = gen.add_suez_barrier(barrier, width=7)
@@ -129,6 +145,7 @@ def main() -> None:
     label_centers = gen.compute_label_centers(labels)
 
     fig, ax = plt.subplots(figsize=(10, 5))
+    fig.subplots_adjust(bottom=0.12)
     ax.set_title("Drag a seed, release to redraw")
     ax.axis("off")
     image_artist = ax.imshow(filled, interpolation="nearest")
@@ -142,22 +159,36 @@ def main() -> None:
         zorder=4,
     )
     name_artists = []
-    for (x, y), (_tid, name, _region) in zip(label_centers, gen.TERRITORIES):
+    for (x, y), name in zip(label_centers, names):
         name_artists.append(
-            ax.text(x + 4, y + 4, name, fontsize=7, color="#222222", zorder=5)
+            ax.text(
+                x + 4,
+                y + 4,
+                name,
+                fontsize=7,
+                color="#222222",
+                zorder=5,
+                bbox=dict(facecolor="white", edgecolor="none", alpha=0.85, pad=1.2),
+            )
         )
 
-    selected = {"idx": None}
+    selected = {"idx": None, "moved": False}
+
+    name_ax = fig.add_axes([0.1, 0.02, 0.6, 0.06])
+    name_box = TextBox(name_ax, "Territory name", initial="")
+    save_ax = fig.add_axes([0.72, 0.02, 0.18, 0.06])
+    save_button = Button(save_ax, "Save name")
 
     def _update_borders() -> None:
-        nonlocal centers, labels, borders, border_overlay
+        nonlocal centers, labels, borders, border_overlay, names
         labels, land = _compute_labels(centers, barrier)
         borders = gen.compute_borders(labels, land)
         filled = gen.render_filled_map(barrier, labels, borders)
         image_artist.set_data(filled)
         label_centers = gen.compute_label_centers(labels)
-        for artist, (x, y) in zip(name_artists, label_centers):
+        for idx, (artist, (x, y)) in enumerate(zip(name_artists, label_centers)):
             artist.set_position((x + 4, y + 4))
+            artist.set_text(names[idx])
         fig.canvas.draw_idle()
 
     def on_press(event):
@@ -168,10 +199,17 @@ def main() -> None:
         idx = int(np.argmin(dists))
         if dists[idx] < 15 ** 2:
             selected["idx"] = idx
+            selected["moved"] = False
+            name_box.set_val(names[idx])
+        else:
+            selected["idx"] = None
+            selected["moved"] = False
+            name_box.set_val("")
 
     def on_motion(event):
         if selected["idx"] is None or event.xdata is None or event.ydata is None:
             return
+        selected["moved"] = True
         centers_arr[selected["idx"]] = [int(event.xdata), int(event.ydata)]
         scatter.set_offsets(centers_arr)
         fig.canvas.draw_idle()
@@ -180,7 +218,6 @@ def main() -> None:
         if selected["idx"] is None:
             return
         idx = selected["idx"]
-        selected["idx"] = None
         x, y = centers_arr[idx]
         x, y = gen.snap_to_mask(barrier == 255, x, y)
         centers_arr[idx] = [x, y]
@@ -189,9 +226,22 @@ def main() -> None:
         _update_borders()
         _save_overrides(overrides_path, centers)
 
+    def on_save_name(_event):
+        idx = selected["idx"]
+        if idx is None:
+            return
+        text = name_box.text.strip()
+        if not text:
+            return
+        names[idx] = text
+        name_artists[idx].set_text(text)
+        _save_name_overrides(name_overrides_path, names)
+        fig.canvas.draw_idle()
+
     fig.canvas.mpl_connect("button_press_event", on_press)
     fig.canvas.mpl_connect("button_release_event", on_release)
     fig.canvas.mpl_connect("motion_notify_event", on_motion)
+    save_button.on_clicked(on_save_name)
 
     plt.show()
 
