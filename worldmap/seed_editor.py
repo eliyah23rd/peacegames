@@ -126,18 +126,26 @@ def main() -> None:
 
     labels = _compute_labels(centers, land, comp_lab, comp_sizes)
     borders = gen.compute_borders(labels, land)
+    filled = gen.render_filled_map(barrier, labels, borders)
 
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.set_title("Drag a seed, release to redraw")
     ax.axis("off")
-    ax.imshow(barrier, cmap="gray", interpolation="nearest")
-
-    border_overlay = np.zeros((gen.H, gen.W, 4), dtype=np.float32)
-    border_overlay[borders] = [0.0, 0.0, 0.0, 1.0]
-    border_artist = ax.imshow(border_overlay, interpolation="nearest")
+    image_artist = ax.imshow(filled, interpolation="nearest")
 
     centers_arr = np.array(centers, dtype=np.int32)
-    scatter = ax.scatter(centers_arr[:, 0], centers_arr[:, 1], s=30, c="#e6553d")
+    scatter = ax.scatter(
+        centers_arr[:, 0],
+        centers_arr[:, 1],
+        s=30,
+        c="#e6553d",
+        zorder=4,
+    )
+    name_artists = []
+    for (x, y), (_tid, name, _region) in zip(centers, gen.TERRITORIES):
+        name_artists.append(
+            ax.text(x + 4, y + 4, name, fontsize=7, color="#222222", zorder=5)
+        )
 
     selected = {"idx": None}
 
@@ -145,9 +153,10 @@ def main() -> None:
         nonlocal centers, labels, borders, border_overlay
         labels = _compute_labels(centers, land, comp_lab, comp_sizes)
         borders = gen.compute_borders(labels, land)
-        border_overlay = np.zeros((gen.H, gen.W, 4), dtype=np.float32)
-        border_overlay[borders] = [0.0, 0.0, 0.0, 1.0]
-        border_artist.set_data(border_overlay)
+        filled = gen.render_filled_map(barrier, labels, borders)
+        image_artist.set_data(filled)
+        for artist, (x, y) in zip(name_artists, centers):
+            artist.set_position((x + 4, y + 4))
         fig.canvas.draw_idle()
 
     def on_press(event):

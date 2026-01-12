@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
+import colorsys
 import json
 import random
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage as ndi
 
 W, H = 1600, 800
 MIN_COMPONENT_SIZE = 10000
 SEED_TRIES = 5
 RELAX_ITERS = 5
-NOISE_STRENGTH = 6.0
+NOISE_STRENGTH = 14.0
+
+
+def _build_palette(count: int) -> list[tuple[int, int, int]]:
+    colors = []
+    for i in range(count):
+        hue = (i / max(count, 1)) % 1.0
+        r, g, b = colorsys.hsv_to_rgb(hue, 0.5, 0.95)
+        colors.append((int(r * 255), int(g * 255), int(b * 255)))
+    return colors
 
 # ----------------------------
 # 32 territories (more in Africa + N. America; 2 in Antarctica)
@@ -581,6 +591,39 @@ def _compute_labels(
     )
     return labels
 
+def render_filled_map(
+    barrier: np.ndarray,
+    labels: np.ndarray,
+    borders: np.ndarray,
+    *,
+    palette: list[tuple[int, int, int]] | None = None,
+) -> np.ndarray:
+    """Return RGB image with colored territories and black borders."""
+    if palette is None:
+        palette = _build_palette(len(TERRITORIES))
+    rgb = np.full((H, W, 3), 255, dtype=np.uint8)
+    rgb[barrier == 0] = 0
+    for idx, color in enumerate(palette):
+        rgb[labels == idx] = color
+    rgb[borders] = 0
+    return rgb
+
+def add_name_labels(
+    image: np.ndarray,
+    centers: list[tuple[int, int]],
+    names: list[str],
+) -> np.ndarray:
+    """Draw territory names at seed centers."""
+    pil = Image.fromarray(image)
+    draw = ImageDraw.Draw(pil)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 14)
+    except Exception:
+        font = ImageFont.load_default()
+    for (x, y), name in zip(centers, names):
+        draw.text((x + 4, y + 4), name, fill=(0, 0, 0), font=font)
+    return np.array(pil)
+
 def build_layout(
     land: np.ndarray,
     comp_lab: np.ndarray,
@@ -720,6 +763,18 @@ def main():
     out_map[borders] = 0
     out_map = np.where(out_map < 200, 0, 255).astype(np.uint8)
     Image.fromarray(out_map, mode="L").convert("RGB").save("world_map_32_internal.png", optimize=True)
+    names = [name for _tid, name, _region in TERRITORIES]
+    labeled = add_name_labels(
+        np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
+        centers,
+        names,
+    )
+    Image.fromarray(labeled).save("world_map_32_internal_labeled.png", optimize=True)
+
+    filled = render_filled_map(barrier, labels, borders)
+    Image.fromarray(filled).save("world_map_32_filled.png", optimize=True)
+    filled_labeled = add_name_labels(filled, centers, names)
+    Image.fromarray(filled_labeled).save("world_map_32_filled_labeled.png", optimize=True)
 
     # 7) Adjacency + JSON
     ids_by_idx = {i: TERRITORIES[i][0] for i in range(len(TERRITORIES))}
