@@ -180,7 +180,7 @@ def main() -> None:
     save_button = Button(save_ax, "Save name")
 
     def _update_borders() -> None:
-        nonlocal centers, labels, borders, border_overlay, names
+        nonlocal centers, labels, borders, names
         labels, land = _compute_labels(centers, barrier)
         borders = gen.compute_borders(labels, land)
         filled = gen.render_filled_map(barrier, labels, borders)
