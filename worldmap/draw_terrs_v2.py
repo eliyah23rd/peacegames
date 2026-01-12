@@ -12,7 +12,7 @@ W, H = 1600, 800
 MIN_COMPONENT_SIZE = 10000
 SEED_TRIES = 5
 RELAX_ITERS = 5
-NOISE_STRENGTH = 14.0
+NOISE_STRENGTH = 22.0
 
 
 def _build_palette(count: int) -> list[tuple[int, int, int]]:
@@ -127,13 +127,24 @@ def ocean_from_edges(barrier: np.ndarray) -> np.ndarray:
     seeds[:, -1] = open_space[:, -1]
 
     ocean = seeds.copy()
-    struct = ndi.generate_binary_structure(2, 1)  # 4-neigh
+    struct = ndi.generate_binary_structure(2, 2)  # 8-neigh
     while True:
         prev = ocean.sum()
         ocean = ndi.binary_dilation(ocean, structure=struct) & open_space
         if ocean.sum() == prev:
             break
     return ocean
+
+def land_from_seed_components(open_space: np.ndarray, centers: list[tuple[int, int]]) -> np.ndarray:
+    """Treat any open-space component containing a seed as land; others remain water."""
+    comp_lab, _n = ndi.label(open_space, structure=ndi.generate_binary_structure(2, 2))
+    land = np.zeros_like(open_space, dtype=bool)
+    for x, y in centers:
+        if 0 <= x < W and 0 <= y < H:
+            cid = int(comp_lab[y, x])
+            if cid > 0:
+                land |= comp_lab == cid
+    return land
 
 def add_suez_barrier(barrier: np.ndarray, width: int = 7) -> np.ndarray:
     """
@@ -591,6 +602,18 @@ def _compute_labels(
     )
     return labels
 
+def compute_label_centers(labels: np.ndarray) -> list[tuple[int, int]]:
+    centers: list[tuple[int, int]] = []
+    for idx in range(len(TERRITORIES)):
+        mask = labels == idx
+        if not mask.any():
+            centers.append((0, 0))
+            continue
+        dist = ndi.distance_transform_edt(mask)
+        y, x = np.unravel_index(np.argmax(dist), dist.shape)
+        centers.append((int(x), int(y)))
+    return centers
+
 def render_filled_map(
     barrier: np.ndarray,
     labels: np.ndarray,
@@ -621,6 +644,8 @@ def add_name_labels(
     except Exception:
         font = ImageFont.load_default()
     for (x, y), name in zip(centers, names):
+        if x == 0 and y == 0:
+            continue
         draw.text((x + 4, y + 4), name, fill=(0, 0, 0), font=font)
     return np.array(pil)
 
@@ -731,15 +756,15 @@ def main():
     barrier = load_bw(in_path, threshold=200)
     barrier = add_suez_barrier(barrier, width=7)
 
+    open_space = barrier == 255
+
     # 2) Build land mask (keeps Antarctica for now)
     land = land_mask(barrier)
-
-    # 3) Connected components of land (after Suez barrier split)
     comp_lab, ncomp = label_components(land)
     if ncomp < 5:
         print("Warning: fewer components than expected. Still continuing.")
 
-    # 4) Place seeds (initial), then relax per component to spread them
+    # 3) Place seeds (initial), then relax per component to spread them
     centers = None
     if overrides_path.exists():
         overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
@@ -748,12 +773,15 @@ def main():
             if tid not in overrides:
                 raise KeyError(f"Missing seed override for {tid}")
             raw = overrides[tid]
-            centers.append((int(raw[0]), int(raw[1])))
-    if centers is None:
-        centers, labels = build_layout(land, comp_lab)
-    else:
+            x, y = int(raw[0]), int(raw[1])
+            x, y = snap_to_mask(open_space, x, y)
+            centers.append((x, y))
+        land = land_from_seed_components(open_space, centers)
+        comp_lab, _ = label_components(land)
         comp_sizes = np.bincount(comp_lab.ravel())
         labels = _compute_labels(centers, land, comp_lab, comp_sizes)
+    if centers is None:
+        centers, labels = build_layout(land, comp_lab)
 
     # 5) Borders
     borders = compute_borders(labels, land)
@@ -764,16 +792,17 @@ def main():
     out_map = np.where(out_map < 200, 0, 255).astype(np.uint8)
     Image.fromarray(out_map, mode="L").convert("RGB").save("world_map_32_internal.png", optimize=True)
     names = [name for _tid, name, _region in TERRITORIES]
+    label_centers = compute_label_centers(labels)
     labeled = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
-        centers,
+        label_centers,
         names,
     )
     Image.fromarray(labeled).save("world_map_32_internal_labeled.png", optimize=True)
 
     filled = render_filled_map(barrier, labels, borders)
     Image.fromarray(filled).save("world_map_32_filled.png", optimize=True)
-    filled_labeled = add_name_labels(filled, centers, names)
+    filled_labeled = add_name_labels(filled, label_centers, names)
     Image.fromarray(filled_labeled).save("world_map_32_filled_labeled.png", optimize=True)
 
     # 7) Adjacency + JSON
@@ -789,7 +818,7 @@ def main():
         "territories": []
     }
     for i, (tid, name, _region) in enumerate(TERRITORIES):
-        cx, cy = centers[i]
+        cx, cy = label_centers[i]
         data["territories"].append({
             "id": tid,
             "name": name,

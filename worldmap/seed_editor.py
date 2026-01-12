@@ -81,10 +81,12 @@ def _save_overrides(path: Path, centers: List[Coord]) -> None:
 
 def _compute_labels(
     centers: List[Coord],
-    land: np.ndarray,
-    comp_lab: np.ndarray,
-    comp_sizes: np.ndarray,
-) -> np.ndarray:
+    barrier: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    open_space = barrier == 255
+    land = gen.land_from_seed_components(open_space, centers)
+    comp_lab, _ = gen.label_components(land)
+    comp_sizes = np.bincount(comp_lab.ravel())
     comp_id_by_seed = gen.seed_component_ids(centers, comp_lab)
     labels = gen.per_component_assignment(
         land,
@@ -99,7 +101,7 @@ def _compute_labels(
         comp_sizes,
         centers,
     )
-    return labels
+    return labels, land
 
 
 def main() -> None:
@@ -120,13 +122,11 @@ def main() -> None:
 
     barrier = gen.load_bw(outline_path, threshold=200)
     barrier = gen.add_suez_barrier(barrier, width=7)
-    land = gen.land_mask(barrier)
-    comp_lab, _ = gen.label_components(land)
-    comp_sizes = np.bincount(comp_lab.ravel())
 
-    labels = _compute_labels(centers, land, comp_lab, comp_sizes)
+    labels, land = _compute_labels(centers, barrier)
     borders = gen.compute_borders(labels, land)
     filled = gen.render_filled_map(barrier, labels, borders)
+    label_centers = gen.compute_label_centers(labels)
 
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.set_title("Drag a seed, release to redraw")
@@ -142,7 +142,7 @@ def main() -> None:
         zorder=4,
     )
     name_artists = []
-    for (x, y), (_tid, name, _region) in zip(centers, gen.TERRITORIES):
+    for (x, y), (_tid, name, _region) in zip(label_centers, gen.TERRITORIES):
         name_artists.append(
             ax.text(x + 4, y + 4, name, fontsize=7, color="#222222", zorder=5)
         )
@@ -151,11 +151,12 @@ def main() -> None:
 
     def _update_borders() -> None:
         nonlocal centers, labels, borders, border_overlay
-        labels = _compute_labels(centers, land, comp_lab, comp_sizes)
+        labels, land = _compute_labels(centers, barrier)
         borders = gen.compute_borders(labels, land)
         filled = gen.render_filled_map(barrier, labels, borders)
         image_artist.set_data(filled)
-        for artist, (x, y) in zip(name_artists, centers):
+        label_centers = gen.compute_label_centers(labels)
+        for artist, (x, y) in zip(name_artists, label_centers):
             artist.set_position((x + 4, y + 4))
         fig.canvas.draw_idle()
 
@@ -181,7 +182,7 @@ def main() -> None:
         idx = selected["idx"]
         selected["idx"] = None
         x, y = centers_arr[idx]
-        x, y = gen.snap_to_mask(land, x, y)
+        x, y = gen.snap_to_mask(barrier == 255, x, y)
         centers_arr[idx] = [x, y]
         centers[idx] = (int(x), int(y))
         scatter.set_offsets(centers_arr)
