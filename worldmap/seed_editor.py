@@ -8,12 +8,29 @@ from typing import Dict, List, Tuple
 import matplotlib
 import numpy as np
 
-for _backend in ("TkAgg", "Qt5Agg", "MacOSX"):
-    try:
-        matplotlib.use(_backend)
-        break
-    except Exception:
-        continue
+
+def _select_backend() -> str:
+    candidates = [
+        ("TkAgg", "tkinter"),
+        ("QtAgg", "PyQt6"),
+        ("Qt5Agg", "PyQt5"),
+        ("MacOSX", None),
+    ]
+    for backend, module in candidates:
+        try:
+            if module:
+                __import__(module)
+            matplotlib.use(backend)
+            return backend
+        except Exception:
+            continue
+    raise RuntimeError(
+        "No interactive matplotlib backend available. Install tkinter (python3.13-tk), "
+        "PyQt6, or PyQt5 to use the seed editor."
+    )
+
+
+_select_backend()
 
 import matplotlib.pyplot as plt
 
