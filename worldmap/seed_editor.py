@@ -5,8 +5,17 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
+
+for _backend in ("TkAgg", "Qt5Agg", "MacOSX"):
+    try:
+        matplotlib.use(_backend)
+        break
+    except Exception:
+        continue
+
+import matplotlib.pyplot as plt
 
 BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR.parent) not in sys.path:
