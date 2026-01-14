@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import colorsys
 import json
+import math
 import random
 from pathlib import Path
 
@@ -700,33 +701,70 @@ def add_name_labels(
         tx, ty = x + 4, y + 4
         bbox = draw.textbbox((tx, ty), text, font=font)
         pad = 2
-        draw.rectangle(
-            [bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad],
-            fill=(255, 255, 255),
-        )
-        draw.text((tx, ty), text, fill=(0, 0, 0), font=font)
-        if icon_cache:
-            icons = []
-            for icon in icon_order:
-                icons.extend([icon] * max(icon_count_per_resource, 1))
-            text_width = bbox[2] - bbox[0]
-            total_width = icon_size * len(icons) + 4 * (len(icons) - 1)
-            start_x = int(tx + max((text_width - total_width) / 2, 0))
-            icon_y = bbox[3] + 6
-            bg_left = start_x - pad
-            bg_top = icon_y - pad
-            bg_right = start_x + total_width + pad
-            bg_bottom = icon_y + icon_size + pad
-            draw.rectangle(
-                [bg_left, bg_top, bg_right, bg_bottom],
-                fill=(255, 255, 255),
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        icons = []
+        for icon in icon_order:
+            icons.extend([icon] * max(icon_count_per_resource, 1))
+        icon_total = len(icons)
+        icon_gap = 4
+        icon_rows = 0
+        icons_per_row = 0
+        icons_width = 0
+        if icon_total > 0:
+            max_icons_per_row = max(
+                1, int((text_width + icon_gap) // (icon_size + icon_gap))
             )
-            cur_x = start_x
-            for icon in icons:
-                img = icon_cache.get(icon)
-                if img:
-                    pil.paste(img, (cur_x, icon_y), mask=img)
-                cur_x += icon_size + 4
+            icons_per_row = max_icons_per_row
+            rows_needed = int(math.ceil(icon_total / icons_per_row))
+            if rows_needed <= 2:
+                icon_rows = 2
+                icons_per_row = int(math.ceil(icon_total / 2))
+            elif rows_needed <= 3:
+                icon_rows = 3
+            else:
+                icon_rows = 3
+                icons_per_row = int(math.ceil(icon_total / 3))
+            icons_width = icons_per_row * icon_size + icon_gap * (icons_per_row - 1)
+
+        box_width = max(text_width, icons_width)
+        box_left = tx - pad
+        box_right = box_left + box_width + pad * 2
+        text_x = box_left + pad + (box_width - text_width) / 2
+        icon_x = box_left + pad + (box_width - icons_width) / 2
+        text_top = ty
+        text_bottom = ty + text_height
+        icon_top = text_bottom + (6 if icon_total > 0 else 0)
+        box_bottom = (
+            icon_top + icon_rows * icon_size + icon_gap * (icon_rows - 1) + pad
+            if icon_total > 0
+            else text_bottom + pad
+        )
+        box_top = text_top - pad
+        draw.rectangle(
+            [box_left, box_top, box_right, box_bottom],
+            fill=(255, 255, 255),
+            outline=(0, 0, 0),
+            width=1,
+        )
+        draw.text((text_x, ty), text, fill=(0, 0, 0), font=font)
+        if icon_cache:
+            cur = 0
+            for row in range(icon_rows):
+                row_icons = icons[cur : cur + icons_per_row]
+                if not row_icons:
+                    break
+                row_width = (
+                    len(row_icons) * icon_size + icon_gap * (len(row_icons) - 1)
+                )
+                row_x = int(icon_x + max((icons_width - row_width) / 2, 0))
+                row_y = int(icon_top + row * (icon_size + icon_gap))
+                for icon in row_icons:
+                    img = icon_cache.get(icon)
+                    if img:
+                        pil.paste(img, (row_x, row_y), mask=img)
+                    row_x += icon_size + icon_gap
+                cur += icons_per_row
     return np.array(pil)
 
 def build_layout(
