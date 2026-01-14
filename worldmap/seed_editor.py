@@ -44,6 +44,11 @@ import worldmap.draw_terrs_v2 as gen
 
 Coord = Tuple[int, int]
 
+def _resolve_path(path: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return BASE_DIR / path
+
 
 def _load_centers(default_json: Path, overrides: Dict[str, List[int]]) -> List[Coord]:
     if default_json.exists():
@@ -147,11 +152,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    outline_path = Path(args.outline)
-    base_json = Path(args.base_json)
-    overrides_path = Path(args.overrides)
-    name_overrides_path = Path(args.name_overrides)
-    label_overrides_path = Path(args.label_overrides)
+    outline_path = _resolve_path(Path(args.outline))
+    base_json = _resolve_path(Path(args.base_json))
+    overrides_path = _resolve_path(Path(args.overrides))
+    name_overrides_path = _resolve_path(Path(args.name_overrides))
+    label_overrides_path = _resolve_path(Path(args.label_overrides))
     if not outline_path.exists():
         raise FileNotFoundError(f"Missing outline PNG: {outline_path}")
 
