@@ -15,6 +15,7 @@ SEED_TRIES = 5
 RELAX_ITERS = 5
 WARP_STRENGTH = 18.0
 ICON_PREVIEW_COUNT = 3
+NOTICE_BOARD_BOX = (40, 140, 320, 540)
 RESOURCE_COLORS = {
     "energy": (235, 193, 70),
     "minerals": (160, 160, 160),
@@ -68,6 +69,28 @@ def build_label_positions(
         else:
             positions.append((int(cx), int(cy)))
     return positions
+
+def overlay_notice_board(
+    image: np.ndarray,
+    board_path: Path,
+    box: tuple[int, int, int, int],
+) -> np.ndarray:
+    if not board_path.exists():
+        return image
+    base = Image.fromarray(image).convert("RGBA")
+    board = Image.open(board_path).convert("RGBA")
+    box_w = box[2] - box[0]
+    box_h = box[3] - box[1]
+    scale = min(box_w / board.width, box_h / board.height)
+    new_size = (
+        max(1, int(board.width * scale)),
+        max(1, int(board.height * scale)),
+    )
+    board = board.resize(new_size, Image.Resampling.LANCZOS)
+    x = int(box[0] + (box_w - new_size[0]) / 2)
+    y = int(box[1] + (box_h - new_size[1]) / 2)
+    base.paste(board, (x, y), board)
+    return np.array(base.convert("RGB"))
 
 def load_label_font(size: int = 14) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     try:
@@ -1067,6 +1090,7 @@ def main():
     names = build_names(name_overrides_path)
     label_centers = compute_label_centers(labels)
     label_positions = build_label_positions(label_centers, label_overrides_path)
+    notice_board_path = out_dir / "notice_board.jpeg"
     icons_dir = Path(__file__).resolve().parents[1] / "icons"
     labeled = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
@@ -1075,6 +1099,7 @@ def main():
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
+    labeled = overlay_notice_board(labeled, notice_board_path, NOTICE_BOARD_BOX)
     Image.fromarray(labeled).save(
         out_dir / "world_map_32_internal_labeled.png",
         optimize=True,
@@ -1087,6 +1112,7 @@ def main():
         icon_count_per_resource=ICON_PREVIEW_COUNT,
         resource_style="pie",
     )
+    labeled_pie = overlay_notice_board(labeled_pie, notice_board_path, NOTICE_BOARD_BOX)
     Image.fromarray(labeled_pie).save(
         out_dir / "world_map_32_internal_labeled_pie.png",
         optimize=True,
@@ -1101,6 +1127,7 @@ def main():
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
+    filled_labeled = overlay_notice_board(filled_labeled, notice_board_path, NOTICE_BOARD_BOX)
     Image.fromarray(filled_labeled).save(
         out_dir / "world_map_32_filled_labeled.png",
         optimize=True,
@@ -1112,6 +1139,11 @@ def main():
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
         resource_style="pie",
+    )
+    filled_labeled_pie = overlay_notice_board(
+        filled_labeled_pie,
+        notice_board_path,
+        NOTICE_BOARD_BOX,
     )
     Image.fromarray(filled_labeled_pie).save(
         out_dir / "world_map_32_filled_labeled_pie.png",
@@ -1129,6 +1161,11 @@ def main():
         names,
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
+    )
+    random_filled_labeled = overlay_notice_board(
+        random_filled_labeled,
+        notice_board_path,
+        NOTICE_BOARD_BOX,
     )
     Image.fromarray(random_filled_labeled).save(
         out_dir / "world_map_32_filled_random_icons.png",

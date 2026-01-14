@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -37,3 +39,12 @@ class WorldMapLabelTests(unittest.TestCase):
     def test_random_palette_count(self):
         colors = gen._build_random_palette(5)
         self.assertEqual(len(colors), 5)
+
+    def test_overlay_notice_board(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            board_path = Path(tmp_dir) / "board.png"
+            image = np.full((60, 90, 3), 255, dtype=np.uint8)
+            board = np.zeros((20, 10, 3), dtype=np.uint8)
+            gen.Image.fromarray(board).save(board_path)
+            out = gen.overlay_notice_board(image, board_path, (5, 5, 50, 50))
+            self.assertEqual(out.shape, image.shape)
