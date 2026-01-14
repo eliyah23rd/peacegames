@@ -12,7 +12,7 @@ W, H = 1600, 800
 MIN_COMPONENT_SIZE = 10000
 SEED_TRIES = 5
 RELAX_ITERS = 5
-NOISE_STRENGTH = 22.0
+WARP_STRENGTH = 18.0
 
 
 def _build_palette(count: int) -> list[tuple[int, int, int]]:
@@ -209,6 +209,12 @@ def smooth_noise_field(seed: int, sigma: float = 28.0) -> np.ndarray:
     noise = (noise * 2.0 - 1.0)  # [-1,1]
     return noise
 
+def build_warp_fields(seed: int, sigma: float = 28.0) -> tuple[np.ndarray, np.ndarray]:
+    return (
+        smooth_noise_field(seed, sigma=sigma),
+        smooth_noise_field(seed + 17, sigma=sigma),
+    )
+
 def find_bottom_component(comp_lab: np.ndarray) -> int | None:
     """Return the largest component touching the bottom edge (Antarctica)."""
     bottom_labels = comp_lab[-1, :]
@@ -328,7 +334,13 @@ def place_all_seeds(
         centers.append(sample_seed_on_mask(region_mask, box, rng, centers, min_dist=min_dist))
     return centers
 
-def assign_labels_warped(land: np.ndarray, centers_xy, noise: np.ndarray, noise_strength: float = 22.0):
+def assign_labels_warped(
+    land: np.ndarray,
+    centers_xy,
+    warp_x: np.ndarray,
+    warp_y: np.ndarray,
+    warp_strength: float = WARP_STRENGTH,
+):
     """
     Land-only assignment:
     label[p] = argmin_i (dist(p, seed_i) + noise_strength * noise[p])
@@ -337,16 +349,16 @@ def assign_labels_warped(land: np.ndarray, centers_xy, noise: np.ndarray, noise_
     """
     land_y, land_x = np.where(land)
     best_cost = np.full((H, W), np.inf, dtype=np.float32)
-    best_idx  = np.full((H, W), -1, dtype=np.int32)
+    best_idx = np.full((H, W), -1, dtype=np.int32)
 
-    # Precompute noise term once
-    noise_term = noise_strength * noise
+    x_w = land_x + warp_strength * warp_x[land_y, land_x]
+    y_w = land_y + warp_strength * warp_y[land_y, land_x]
 
     for i, (sx, sy) in enumerate(centers_xy):
-        dx = (land_x - sx).astype(np.float32)
-        dy = (land_y - sy).astype(np.float32)
+        dx = (x_w - sx).astype(np.float32)
+        dy = (y_w - sy).astype(np.float32)
         dist = np.sqrt(dx * dx + dy * dy)  # (Nland,)
-        cost = dist + noise_term[land_y, land_x]
+        cost = dist
 
         # update winners for land pixels only
         cur = best_cost[land_y, land_x]
@@ -391,7 +403,7 @@ def lloyd_relax_by_component(
     - move each seed to centroid of its region (snapped to nearest land pixel)
     """
     centers = [list(p) for p in centers_xy]
-    noise = smooth_noise_field(seed=seed, sigma=28.0)
+    warp_x, warp_y = build_warp_fields(seed=seed, sigma=28.0)
 
     for t in range(iters):
         comp_id_by_seed = seed_component_ids(centers, comp_lab)
@@ -401,6 +413,8 @@ def lloyd_relax_by_component(
             comp_lab,
             comp_id_by_seed,
             noise_seed=seed + t,
+            warp_x=warp_x,
+            warp_y=warp_y,
         )
 
         # compute centroids per label
@@ -492,13 +506,22 @@ def add_sea_links(adj):
 # Enforce "no cross-continent borders":
 # Assign seeds + labels PER COMPONENT
 # ----------------------------
-def per_component_assignment(land: np.ndarray, centers_xy, comp_lab: np.ndarray, comp_id_by_seed, noise_seed: int = 999):
+def per_component_assignment(
+    land: np.ndarray,
+    centers_xy,
+    comp_lab: np.ndarray,
+    comp_id_by_seed,
+    noise_seed: int = 999,
+    warp_x: np.ndarray | None = None,
+    warp_y: np.ndarray | None = None,
+):
     """
     Build labels by solving each connected component separately.
     This ensures borders never cross water or continental-divide barriers.
     """
     labels = np.full((H, W), -1, dtype=np.int32)
-    noise = smooth_noise_field(seed=noise_seed, sigma=28.0)
+    if warp_x is None or warp_y is None:
+        warp_x, warp_y = build_warp_fields(seed=noise_seed, sigma=28.0)
 
     # group seeds by component id
     seeds_by_comp = {}
@@ -513,8 +536,8 @@ def per_component_assignment(land: np.ndarray, centers_xy, comp_lab: np.ndarray,
         sub_labels = assign_labels_warped(
             comp_mask,
             sub_centers,
-            noise=noise,
-            noise_strength=NOISE_STRENGTH,
+            warp_x=warp_x,
+            warp_y=warp_y,
         )
 
         # remap local 0..k-1 back to global indices
