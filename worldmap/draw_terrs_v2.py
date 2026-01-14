@@ -1010,8 +1010,9 @@ def main():
         raise FileNotFoundError(
             "Put world_outline_1600x800.png in the worldmap folder first."
         )
-    overrides_path = Path("seed_overrides.json")
-    name_overrides_path = Path("name_overrides.json")
+    overrides_path = out_dir / "seed_overrides.json"
+    name_overrides_path = out_dir / "name_overrides.json"
+    label_overrides_path = out_dir / "label_overrides.json"
 
     # 1) Read barrier map and split Africa/Eurasia with Suez barrier
     barrier = load_bw(in_path, threshold=200)
@@ -1057,7 +1058,7 @@ def main():
     )
     names = build_names(name_overrides_path)
     label_centers = compute_label_centers(labels)
-    label_positions = build_label_positions(label_centers, Path("label_overrides.json"))
+    label_positions = build_label_positions(label_centers, label_overrides_path)
     icons_dir = Path(__file__).resolve().parents[1] / "icons"
     labeled = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
