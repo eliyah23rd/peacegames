@@ -670,6 +670,9 @@ def add_name_labels(
     image: np.ndarray,
     centers: list[tuple[int, int]],
     names: list[str],
+    *,
+    icons_dir: Path | None = None,
+    icon_size: int = 14,
 ) -> np.ndarray:
     """Draw territory names at seed centers."""
     pil = Image.fromarray(image)
@@ -678,6 +681,16 @@ def add_name_labels(
         font = ImageFont.truetype("DejaVuSans.ttf", 14)
     except Exception:
         font = ImageFont.load_default()
+    icon_order = ["energy", "minerals", "food"]
+    icon_cache: dict[str, Image.Image] = {}
+    if icons_dir:
+        for icon in icon_order:
+            icon_path = icons_dir / f"{icon}.png"
+            if icon_path.is_file():
+                icon_cache[icon] = Image.open(icon_path).convert("RGBA").resize(
+                    (icon_size, icon_size), Image.Resampling.LANCZOS
+                )
+
     for (x, y), name in zip(centers, names):
         if x == 0 and y == 0:
             continue
@@ -690,6 +703,25 @@ def add_name_labels(
             fill=(255, 255, 255),
         )
         draw.text((tx, ty), text, fill=(0, 0, 0), font=font)
+        if icon_cache:
+            text_width = bbox[2] - bbox[0]
+            total_width = icon_size * len(icon_order) + 4 * (len(icon_order) - 1)
+            start_x = int(tx + max((text_width - total_width) / 2, 0))
+            icon_y = bbox[3] + 6
+            bg_left = start_x - pad
+            bg_top = icon_y - pad
+            bg_right = start_x + total_width + pad
+            bg_bottom = icon_y + icon_size + pad
+            draw.rectangle(
+                [bg_left, bg_top, bg_right, bg_bottom],
+                fill=(255, 255, 255),
+            )
+            cur_x = start_x
+            for icon in icon_order:
+                img = icon_cache.get(icon)
+                if img:
+                    pil.paste(img, (cur_x, icon_y), mask=img)
+                cur_x += icon_size + 4
     return np.array(pil)
 
 def build_layout(
@@ -837,16 +869,23 @@ def main():
     Image.fromarray(out_map, mode="L").convert("RGB").save("world_map_32_internal.png", optimize=True)
     names = build_names(name_overrides_path)
     label_centers = compute_label_centers(labels)
+    icons_dir = Path(__file__).resolve().parents[1] / "icons"
     labeled = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
         label_centers,
         names,
+        icons_dir=icons_dir,
     )
     Image.fromarray(labeled).save("world_map_32_internal_labeled.png", optimize=True)
 
     filled = render_filled_map(barrier, labels, borders)
     Image.fromarray(filled).save("world_map_32_filled.png", optimize=True)
-    filled_labeled = add_name_labels(filled, label_centers, names)
+    filled_labeled = add_name_labels(
+        filled,
+        label_centers,
+        names,
+        icons_dir=icons_dir,
+    )
     Image.fromarray(filled_labeled).save("world_map_32_filled_labeled.png", optimize=True)
 
     # 7) Adjacency + JSON
