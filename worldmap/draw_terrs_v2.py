@@ -1004,7 +1004,8 @@ def assign_small_components(
 # Main
 # ----------------------------
 def main():
-    in_path = Path(__file__).resolve().parent / "world_outline_1600x800.png"
+    out_dir = Path(__file__).resolve().parent
+    in_path = out_dir / "world_outline_1600x800.png"
     if not in_path.exists():
         raise FileNotFoundError(
             "Put world_outline_1600x800.png in the worldmap folder first."
@@ -1050,7 +1051,10 @@ def main():
     out_map = barrier.copy()
     out_map[borders] = 0
     out_map = np.where(out_map < 200, 0, 255).astype(np.uint8)
-    Image.fromarray(out_map, mode="L").convert("RGB").save("world_map_32_internal.png", optimize=True)
+    Image.fromarray(out_map, mode="L").convert("RGB").save(
+        out_dir / "world_map_32_internal.png",
+        optimize=True,
+    )
     names = build_names(name_overrides_path)
     label_centers = compute_label_centers(labels)
     label_positions = build_label_positions(label_centers, Path("label_overrides.json"))
@@ -1062,7 +1066,10 @@ def main():
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
-    Image.fromarray(labeled).save("world_map_32_internal_labeled.png", optimize=True)
+    Image.fromarray(labeled).save(
+        out_dir / "world_map_32_internal_labeled.png",
+        optimize=True,
+    )
     labeled_pie = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
         label_positions,
@@ -1071,10 +1078,13 @@ def main():
         icon_count_per_resource=ICON_PREVIEW_COUNT,
         resource_style="pie",
     )
-    Image.fromarray(labeled_pie).save("world_map_32_internal_labeled_pie.png", optimize=True)
+    Image.fromarray(labeled_pie).save(
+        out_dir / "world_map_32_internal_labeled_pie.png",
+        optimize=True,
+    )
 
     filled = render_filled_map(barrier, labels, borders)
-    Image.fromarray(filled).save("world_map_32_filled.png", optimize=True)
+    Image.fromarray(filled).save(out_dir / "world_map_32_filled.png", optimize=True)
     filled_labeled = add_name_labels(
         filled,
         label_positions,
@@ -1082,7 +1092,10 @@ def main():
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
-    Image.fromarray(filled_labeled).save("world_map_32_filled_labeled.png", optimize=True)
+    Image.fromarray(filled_labeled).save(
+        out_dir / "world_map_32_filled_labeled.png",
+        optimize=True,
+    )
     filled_labeled_pie = add_name_labels(
         filled,
         label_positions,
@@ -1091,7 +1104,10 @@ def main():
         icon_count_per_resource=ICON_PREVIEW_COUNT,
         resource_style="pie",
     )
-    Image.fromarray(filled_labeled_pie).save("world_map_32_filled_labeled_pie.png", optimize=True)
+    Image.fromarray(filled_labeled_pie).save(
+        out_dir / "world_map_32_filled_labeled_pie.png",
+        optimize=True,
+    )
 
     # 7) Adjacency + JSON
     ids_by_idx = {i: TERRITORIES[i][0] for i in range(len(TERRITORIES))}
@@ -1114,10 +1130,13 @@ def main():
             "adjacent": sorted(adj[tid])
         })
 
-    Path("world_territories_32.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+    (out_dir / "world_territories_32.json").write_text(
+        json.dumps(data, indent=2),
+        encoding="utf-8",
+    )
 
-    print("Wrote: world_map_32_internal.png")
-    print("Wrote: world_territories_32.json")
+    print(f"Wrote: {out_dir / 'world_map_32_internal.png'}")
+    print(f"Wrote: {out_dir / 'world_territories_32.json'}")
 
 if __name__ == "__main__":
     main()
