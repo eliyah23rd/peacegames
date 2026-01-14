@@ -30,6 +30,14 @@ def _build_palette(count: int) -> list[tuple[int, int, int]]:
         colors.append((int(r * 255), int(g * 255), int(b * 255)))
     return colors
 
+def _build_random_palette(count: int) -> list[tuple[int, int, int]]:
+    colors = []
+    for _ in range(count):
+        hue = random.random()
+        r, g, b = colorsys.hsv_to_rgb(hue, 0.55, 0.92)
+        colors.append((int(r * 255), int(g * 255), int(b * 255)))
+    return colors
+
 def load_name_overrides(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -1107,6 +1115,23 @@ def main():
     )
     Image.fromarray(filled_labeled_pie).save(
         out_dir / "world_map_32_filled_labeled_pie.png",
+        optimize=True,
+    )
+    random_filled = render_filled_map(
+        barrier,
+        labels,
+        borders,
+        palette=_build_random_palette(len(TERRITORIES)),
+    )
+    random_filled_labeled = add_name_labels(
+        random_filled,
+        label_positions,
+        names,
+        icons_dir=icons_dir,
+        icon_count_per_resource=ICON_PREVIEW_COUNT,
+    )
+    Image.fromarray(random_filled_labeled).save(
+        out_dir / "world_map_32_filled_random_icons.png",
         optimize=True,
     )
 

@@ -33,3 +33,7 @@ class WorldMapLabelTests(unittest.TestCase):
         self.assertEqual(len(layouts), 1)
         left, _top, right, _bottom = layouts[0]["box"]
         self.assertGreater(right, left)
+
+    def test_random_palette_count(self):
+        colors = gen._build_random_palette(5)
+        self.assertEqual(len(colors), 5)
