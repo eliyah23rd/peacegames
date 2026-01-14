@@ -15,7 +15,7 @@ SEED_TRIES = 5
 RELAX_ITERS = 5
 WARP_STRENGTH = 18.0
 ICON_PREVIEW_COUNT = 3
-NOTICE_BOARD_BOX = (40, 140, 320, 540)
+NOTICE_BOARD_BOX = (20, 430, 310, 780)
 RESOURCE_COLORS = {
     "energy": (235, 193, 70),
     "minerals": (160, 160, 160),
@@ -79,6 +79,14 @@ def overlay_notice_board(
         return image
     base = Image.fromarray(image).convert("RGBA")
     board = Image.open(board_path).convert("RGBA")
+    board_rgb = board.convert("RGB")
+    arr = np.array(board_rgb)
+    mask = (arr < 245).any(axis=2)
+    if mask.any():
+        ys, xs = np.where(mask)
+        x0, x1 = int(xs.min()), int(xs.max()) + 1
+        y0, y1 = int(ys.min()), int(ys.max()) + 1
+        board = board.crop((x0, y0, x1, y1))
     box_w = box[2] - box[0]
     box_h = box[3] - box[1]
     scale = min(box_w / board.width, box_h / board.height)
