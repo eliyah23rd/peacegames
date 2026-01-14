@@ -1004,9 +1004,11 @@ def assign_small_components(
 # Main
 # ----------------------------
 def main():
-    in_path = Path("world_outline_1600x800.png")
+    in_path = Path(__file__).resolve().parent / "world_outline_1600x800.png"
     if not in_path.exists():
-        raise FileNotFoundError("Put world_outline_1600x800.png in this folder first.")
+        raise FileNotFoundError(
+            "Put world_outline_1600x800.png in the worldmap folder first."
+        )
     overrides_path = Path("seed_overrides.json")
     name_overrides_path = Path("name_overrides.json")
 
