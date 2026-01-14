@@ -15,6 +15,11 @@ SEED_TRIES = 5
 RELAX_ITERS = 5
 WARP_STRENGTH = 18.0
 ICON_PREVIEW_COUNT = 3
+RESOURCE_COLORS = {
+    "energy": (235, 193, 70),
+    "minerals": (160, 160, 160),
+    "food": (92, 174, 98),
+}
 
 
 def _build_palette(count: int) -> list[tuple[int, int, int]]:
@@ -30,12 +35,156 @@ def load_name_overrides(path: Path) -> dict:
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
 
+def load_label_overrides(path: Path) -> dict[str, list[int]]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
 def build_names(overrides_path: Path) -> list[str]:
     overrides = load_name_overrides(overrides_path)
     names = []
     for tid, name, _region in TERRITORIES:
         names.append(overrides.get(tid, name))
     return names
+
+def build_label_positions(
+    label_centers: list[tuple[int, int]],
+    overrides_path: Path,
+) -> list[tuple[int, int]]:
+    overrides = load_label_overrides(overrides_path)
+    positions: list[tuple[int, int]] = []
+    for (tid, _name, _region), (cx, cy) in zip(TERRITORIES, label_centers):
+        if tid in overrides:
+            raw = overrides[tid]
+            positions.append((int(raw[0]), int(raw[1])))
+        else:
+            positions.append((int(cx), int(cy)))
+    return positions
+
+def load_label_font(size: int = 14) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    try:
+        return ImageFont.truetype("DejaVuSans.ttf", size)
+    except Exception:
+        return ImageFont.load_default()
+
+def _normalize_resource_counts(
+    resource_counts: list[dict[str, int]] | None,
+    idx: int,
+    icon_count_per_resource: int,
+) -> dict[str, int]:
+    if resource_counts is None:
+        return {key: icon_count_per_resource for key in ("energy", "minerals", "food")}
+    counts = resource_counts[idx]
+    return {
+        "energy": max(0, int(counts.get("energy", 0))),
+        "minerals": max(0, int(counts.get("minerals", 0))),
+        "food": max(0, int(counts.get("food", 0))),
+    }
+
+def build_label_layouts(
+    centers: list[tuple[int, int]],
+    names: list[str],
+    *,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    icon_size: int = 14,
+    icon_count_per_resource: int = 1,
+    resource_style: str = "icons",
+    resource_counts: list[dict[str, int]] | None = None,
+    icon_gap: int = 4,
+    pad: int = 2,
+) -> list[dict[str, object]]:
+    scratch = Image.new("RGB", (10, 10))
+    draw = ImageDraw.Draw(scratch)
+    layouts: list[dict[str, object]] = []
+    icon_order = ["energy", "minerals", "food"]
+    for idx, ((x, y), name) in enumerate(zip(centers, names)):
+        if x == 0 and y == 0:
+            layouts.append({})
+            continue
+        text = str(name)
+        tx, ty = x + 4, y + 4
+        bbox = draw.textbbox((tx, ty), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        counts = _normalize_resource_counts(resource_counts, idx, icon_count_per_resource)
+
+        icons = []
+        icon_rows = 0
+        icons_per_row = 0
+        icons_width = 0
+        pie_bbox = None
+        if resource_style == "icons":
+            for icon in icon_order:
+                icons.extend([icon] * counts.get(icon, 0))
+            icon_total = len(icons)
+            if icon_total > 0:
+                max_icons_per_row = max(
+                    1, int((text_width + icon_gap) // (icon_size + icon_gap))
+                )
+                icons_per_row = max_icons_per_row
+                rows_needed = int(math.ceil(icon_total / icons_per_row))
+                if rows_needed <= 2:
+                    icon_rows = 2
+                    icons_per_row = int(math.ceil(icon_total / 2))
+                elif rows_needed <= 3:
+                    icon_rows = 3
+                else:
+                    icon_rows = 3
+                    icons_per_row = int(math.ceil(icon_total / 3))
+                icons_width = (
+                    icons_per_row * icon_size + icon_gap * (icons_per_row - 1)
+                )
+        else:
+            total = sum(counts.values())
+            if total > 0:
+                pie_d = icon_size * 3 + icon_gap * 2
+                icons_width = pie_d
+                icon_rows = 1
+
+        box_width = max(text_width, icons_width)
+        box_left = tx - pad
+        box_right = box_left + box_width + pad * 2
+        text_x = box_left + pad + (box_width - text_width) / 2
+        icon_x = box_left + pad + (box_width - icons_width) / 2
+        text_top = ty
+        text_bottom = ty + text_height
+        has_icons = resource_style == "icons" and icons
+        has_pie = resource_style == "pie" and sum(counts.values()) > 0
+        icon_top = text_bottom + (6 if has_icons or has_pie else 0)
+        if has_icons:
+            box_bottom = (
+                icon_top + icon_rows * icon_size + icon_gap * (icon_rows - 1) + pad
+            )
+        elif has_pie:
+            pie_bbox = (
+                int(icon_x),
+                int(icon_top),
+                int(icon_x + icons_width),
+                int(icon_top + icons_width),
+            )
+            box_bottom = icon_top + icons_width + pad
+        else:
+            box_bottom = text_bottom + pad
+        box_top = text_top - pad
+
+        layouts.append(
+            {
+                "box": (int(box_left), int(box_top), int(box_right), int(box_bottom)),
+                "text": text,
+                "text_pos": (float(text_x), float(ty)),
+                "icons": icons,
+                "icon_origin": (float(icon_x), float(icon_top)),
+                "icon_rows": icon_rows,
+                "icons_per_row": icons_per_row,
+                "icons_width": icons_width,
+                "icon_gap": icon_gap,
+                "icon_size": icon_size,
+                "pie_bbox": pie_bbox,
+                "counts": counts,
+                "style": resource_style,
+            }
+        )
+    return layouts
 
 # ----------------------------
 # 32 territories (more in Africa + N. America; 2 in Antarctica)
@@ -676,14 +825,13 @@ def add_name_labels(
     icons_dir: Path | None = None,
     icon_size: int = 14,
     icon_count_per_resource: int = 1,
+    resource_style: str = "icons",
+    resource_counts: list[dict[str, int]] | None = None,
 ) -> np.ndarray:
     """Draw territory names at seed centers."""
     pil = Image.fromarray(image)
     draw = ImageDraw.Draw(pil)
-    try:
-        font = ImageFont.truetype("DejaVuSans.ttf", 14)
-    except Exception:
-        font = ImageFont.load_default()
+    font = load_label_font(14)
     icon_order = ["energy", "minerals", "food"]
     icon_cache: dict[str, Image.Image] = {}
     if icons_dir:
@@ -694,61 +842,40 @@ def add_name_labels(
                     (icon_size, icon_size), Image.Resampling.LANCZOS
                 )
 
-    for (x, y), name in zip(centers, names):
-        if x == 0 and y == 0:
-            continue
-        text = str(name)
-        tx, ty = x + 4, y + 4
-        bbox = draw.textbbox((tx, ty), text, font=font)
-        pad = 2
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-        icons = []
-        for icon in icon_order:
-            icons.extend([icon] * max(icon_count_per_resource, 1))
-        icon_total = len(icons)
-        icon_gap = 4
-        icon_rows = 0
-        icons_per_row = 0
-        icons_width = 0
-        if icon_total > 0:
-            max_icons_per_row = max(
-                1, int((text_width + icon_gap) // (icon_size + icon_gap))
-            )
-            icons_per_row = max_icons_per_row
-            rows_needed = int(math.ceil(icon_total / icons_per_row))
-            if rows_needed <= 2:
-                icon_rows = 2
-                icons_per_row = int(math.ceil(icon_total / 2))
-            elif rows_needed <= 3:
-                icon_rows = 3
-            else:
-                icon_rows = 3
-                icons_per_row = int(math.ceil(icon_total / 3))
-            icons_width = icons_per_row * icon_size + icon_gap * (icons_per_row - 1)
+    layouts = build_label_layouts(
+        centers,
+        names,
+        font=font,
+        icon_size=icon_size,
+        icon_count_per_resource=icon_count_per_resource,
+        resource_style=resource_style,
+        resource_counts=resource_counts,
+    )
 
-        box_width = max(text_width, icons_width)
-        box_left = tx - pad
-        box_right = box_left + box_width + pad * 2
-        text_x = box_left + pad + (box_width - text_width) / 2
-        icon_x = box_left + pad + (box_width - icons_width) / 2
-        text_top = ty
-        text_bottom = ty + text_height
-        icon_top = text_bottom + (6 if icon_total > 0 else 0)
-        box_bottom = (
-            icon_top + icon_rows * icon_size + icon_gap * (icon_rows - 1) + pad
-            if icon_total > 0
-            else text_bottom + pad
-        )
-        box_top = text_top - pad
+    for layout in layouts:
+        if not layout:
+            continue
+        box_left, box_top, box_right, box_bottom = layout["box"]
+        text = layout["text"]
+        text_x, text_y = layout["text_pos"]
+        icons = layout["icons"]
+        icon_x, icon_top = layout["icon_origin"]
+        icon_rows = int(layout["icon_rows"])
+        icons_per_row = int(layout["icons_per_row"])
+        icons_width = float(layout["icons_width"])
+        icon_gap = int(layout["icon_gap"])
+        icon_size = int(layout["icon_size"])
+        pie_bbox = layout["pie_bbox"]
+        counts = layout["counts"]
+        style = layout["style"]
         draw.rectangle(
             [box_left, box_top, box_right, box_bottom],
             fill=(255, 255, 255),
             outline=(0, 0, 0),
             width=1,
         )
-        draw.text((text_x, ty), text, fill=(0, 0, 0), font=font)
-        if icon_cache:
+        draw.text((text_x, text_y), text, fill=(0, 0, 0), font=font)
+        if style == "icons" and icon_cache:
             cur = 0
             for row in range(icon_rows):
                 row_icons = icons[cur : cur + icons_per_row]
@@ -765,6 +892,18 @@ def add_name_labels(
                         pil.paste(img, (row_x, row_y), mask=img)
                     row_x += icon_size + icon_gap
                 cur += icons_per_row
+        elif style == "pie" and pie_bbox:
+            total = sum(int(counts.get(key, 0)) for key in icon_order)
+            if total > 0:
+                start = 0.0
+                for key in icon_order:
+                    value = int(counts.get(key, 0))
+                    if value <= 0:
+                        continue
+                    sweep = 360.0 * (value / total)
+                    end = start + sweep
+                    draw.pieslice(pie_bbox, start=start, end=end, fill=RESOURCE_COLORS[key], outline=(0, 0, 0))
+                    start = end
     return np.array(pil)
 
 def build_layout(
@@ -912,26 +1051,45 @@ def main():
     Image.fromarray(out_map, mode="L").convert("RGB").save("world_map_32_internal.png", optimize=True)
     names = build_names(name_overrides_path)
     label_centers = compute_label_centers(labels)
+    label_positions = build_label_positions(label_centers, Path("label_overrides.json"))
     icons_dir = Path(__file__).resolve().parents[1] / "icons"
     labeled = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
-        label_centers,
+        label_positions,
         names,
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
     Image.fromarray(labeled).save("world_map_32_internal_labeled.png", optimize=True)
+    labeled_pie = add_name_labels(
+        np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
+        label_positions,
+        names,
+        icons_dir=icons_dir,
+        icon_count_per_resource=ICON_PREVIEW_COUNT,
+        resource_style="pie",
+    )
+    Image.fromarray(labeled_pie).save("world_map_32_internal_labeled_pie.png", optimize=True)
 
     filled = render_filled_map(barrier, labels, borders)
     Image.fromarray(filled).save("world_map_32_filled.png", optimize=True)
     filled_labeled = add_name_labels(
         filled,
-        label_centers,
+        label_positions,
         names,
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
     Image.fromarray(filled_labeled).save("world_map_32_filled_labeled.png", optimize=True)
+    filled_labeled_pie = add_name_labels(
+        filled,
+        label_positions,
+        names,
+        icons_dir=icons_dir,
+        icon_count_per_resource=ICON_PREVIEW_COUNT,
+        resource_style="pie",
+    )
+    Image.fromarray(filled_labeled_pie).save("world_map_32_filled_labeled_pie.png", optimize=True)
 
     # 7) Adjacency + JSON
     ids_by_idx = {i: TERRITORIES[i][0] for i in range(len(TERRITORIES))}

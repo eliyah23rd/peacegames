@@ -79,6 +79,11 @@ def _load_name_overrides(path: Path) -> Dict[str, str]:
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
 
+def _load_label_overrides(path: Path) -> Dict[str, List[int]]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
 
 def _save_overrides(path: Path, centers: List[Coord]) -> None:
     data = {tid: [int(x), int(y)] for (tid, _name, _region), (x, y) in zip(gen.TERRITORIES, centers)}
@@ -86,6 +91,13 @@ def _save_overrides(path: Path, centers: List[Coord]) -> None:
 
 def _save_name_overrides(path: Path, names: List[str]) -> None:
     data = {tid: name for (tid, _name, _region), name in zip(gen.TERRITORIES, names)}
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+def _save_label_overrides(path: Path, positions: List[Coord]) -> None:
+    data = {
+        tid: [int(x), int(y)]
+        for (tid, _name, _region), (x, y) in zip(gen.TERRITORIES, positions)
+    }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -120,11 +132,18 @@ def main() -> None:
     parser.add_argument("--base-json", default="world_territories_32.json")
     parser.add_argument("--overrides", default="seed_overrides.json")
     parser.add_argument("--name-overrides", default="name_overrides.json")
+    parser.add_argument("--label-overrides", default="label_overrides.json")
     parser.add_argument(
         "--mode",
-        choices=["move", "name"],
+        choices=["move", "name", "label"],
         default="move",
-        help="move=drag seeds, name=edit names only",
+        help="move=drag seeds, name=edit names only, label=move label boxes",
+    )
+    parser.add_argument(
+        "--label-style",
+        choices=["icons", "pie"],
+        default="icons",
+        help="label mode: initial resource style",
     )
     args = parser.parse_args()
 
@@ -132,11 +151,13 @@ def main() -> None:
     base_json = Path(args.base_json)
     overrides_path = Path(args.overrides)
     name_overrides_path = Path(args.name_overrides)
+    label_overrides_path = Path(args.label_overrides)
     if not outline_path.exists():
         raise FileNotFoundError(f"Missing outline PNG: {outline_path}")
 
     overrides = _load_overrides(overrides_path)
     name_overrides = _load_name_overrides(name_overrides_path)
+    label_overrides = _load_label_overrides(label_overrides_path)
     centers = _load_centers(base_json, overrides)
     names = []
     for tid, name, _region in gen.TERRITORIES:
@@ -147,17 +168,39 @@ def main() -> None:
 
     labels, land = _compute_labels(centers, barrier)
     borders = gen.compute_borders(labels, land)
-    filled = gen.render_filled_map(barrier, labels, borders)
     label_centers = gen.compute_label_centers(labels)
+    label_positions = []
+    for (tid, _name, _region), (cx, cy) in zip(gen.TERRITORIES, label_centers):
+        if tid in label_overrides:
+            raw = label_overrides[tid]
+            label_positions.append((int(raw[0]), int(raw[1])))
+        else:
+            label_positions.append((int(cx), int(cy)))
+    filled = gen.render_filled_map(barrier, labels, borders)
+    icons_dir = Path(__file__).resolve().parent.parent / "icons"
 
     fig, ax = plt.subplots(figsize=(10, 5))
     fig.subplots_adjust(bottom=0.12)
     if args.mode == "name":
         ax.set_title("Click a seed, edit name, save")
+    elif args.mode == "label":
+        ax.set_title("Drag a label box, release to save")
     else:
         ax.set_title("Drag a seed, release to redraw")
     ax.axis("off")
-    image_artist = ax.imshow(filled, interpolation="nearest")
+    label_style = {"value": args.label_style}
+    if args.mode == "label":
+        labeled = gen.add_name_labels(
+            filled,
+            label_positions,
+            names,
+            icons_dir=icons_dir,
+            icon_count_per_resource=gen.ICON_PREVIEW_COUNT,
+            resource_style=label_style["value"],
+        )
+        image_artist = ax.imshow(labeled, interpolation="nearest")
+    else:
+        image_artist = ax.imshow(filled, interpolation="nearest")
 
     centers_arr = np.array(centers, dtype=np.int32)
     scatter = ax.scatter(
@@ -167,29 +210,48 @@ def main() -> None:
         c="#e6553d",
         zorder=4,
     )
+    scatter.set_visible(args.mode in ("move", "name"))
     name_artists = []
-    for (x, y), name in zip(label_centers, names):
-        name_artists.append(
-            ax.text(
-                x + 4,
-                y + 4,
-                name,
-                fontsize=7,
-                color="#222222",
-                zorder=5,
-                bbox=dict(facecolor="white", edgecolor="none", alpha=0.85, pad=1.2),
+    if args.mode != "label":
+        for (x, y), name in zip(label_centers, names):
+            name_artists.append(
+                ax.text(
+                    x + 4,
+                    y + 4,
+                    name,
+                    fontsize=7,
+                    color="#222222",
+                    zorder=5,
+                    bbox=dict(facecolor="white", edgecolor="none", alpha=0.85, pad=1.2),
+                )
             )
+
+    label_layouts = []
+    label_font = None
+    if args.mode == "label":
+        label_font = gen.load_label_font(14)
+        label_layouts = gen.build_label_layouts(
+            label_positions,
+            names,
+            font=label_font,
+            icon_size=14,
+            icon_count_per_resource=gen.ICON_PREVIEW_COUNT,
+            resource_style=label_style["value"],
         )
 
     selected = {"idx": None, "moved": False}
 
     name_box = None
     save_button = None
+    toggle_button = None
     if args.mode == "name":
         name_ax = fig.add_axes([0.1, 0.02, 0.6, 0.06])
         name_box = TextBox(name_ax, "Territory name", initial="")
         save_ax = fig.add_axes([0.72, 0.02, 0.18, 0.06])
         save_button = Button(save_ax, "Save name")
+    elif args.mode == "label":
+        toggle_ax = fig.add_axes([0.72, 0.02, 0.22, 0.06])
+        toggle_button = Button(toggle_ax, f"Style: {label_style['value']}")
 
     def _update_borders() -> None:
         nonlocal centers, labels, borders, names
@@ -203,10 +265,43 @@ def main() -> None:
             artist.set_text(names[idx])
         fig.canvas.draw_idle()
 
+    def _update_label_overlay() -> None:
+        nonlocal label_layouts
+        labeled = gen.add_name_labels(
+            filled,
+            label_positions,
+            names,
+            icons_dir=icons_dir,
+            icon_count_per_resource=gen.ICON_PREVIEW_COUNT,
+            resource_style=label_style["value"],
+        )
+        image_artist.set_data(labeled)
+        label_layouts = gen.build_label_layouts(
+            label_positions,
+            names,
+            font=label_font,
+            icon_size=14,
+            icon_count_per_resource=gen.ICON_PREVIEW_COUNT,
+            resource_style=label_style["value"],
+        )
+        fig.canvas.draw_idle()
+
     def on_press(event):
         if event.inaxes != ax or event.xdata is None or event.ydata is None:
             return
         pos = np.array([event.xdata, event.ydata])
+        if args.mode == "label":
+            selected["idx"] = None
+            selected["moved"] = False
+            for idx, layout in enumerate(label_layouts):
+                if not layout:
+                    continue
+                left, top, right, bottom = layout["box"]
+                if left <= event.xdata <= right and top <= event.ydata <= bottom:
+                    selected["idx"] = idx
+                    selected["moved"] = False
+                    break
+            return
         dists = np.sum((centers_arr - pos) ** 2, axis=1)
         idx = int(np.argmin(dists))
         if dists[idx] < 15 ** 2:
@@ -221,16 +316,31 @@ def main() -> None:
                 name_box.set_val("")
 
     def on_motion(event):
-        if args.mode != "move":
+        if args.mode not in ("move", "label"):
             return
         if selected["idx"] is None or event.xdata is None or event.ydata is None:
             return
         selected["moved"] = True
-        centers_arr[selected["idx"]] = [int(event.xdata), int(event.ydata)]
-        scatter.set_offsets(centers_arr)
-        fig.canvas.draw_idle()
+        if args.mode == "move":
+            centers_arr[selected["idx"]] = [int(event.xdata), int(event.ydata)]
+            scatter.set_offsets(centers_arr)
+            fig.canvas.draw_idle()
+        else:
+            label_positions[selected["idx"]] = (int(event.xdata), int(event.ydata))
+            _update_label_overlay()
 
     def on_release(event):
+        if args.mode == "label":
+            if selected["idx"] is None:
+                return
+            idx = selected["idx"]
+            x, y = label_positions[idx]
+            x = int(min(max(x, 0), gen.W - 1))
+            y = int(min(max(y, 0), gen.H - 1))
+            label_positions[idx] = (x, y)
+            _update_label_overlay()
+            _save_label_overrides(label_overrides_path, label_positions)
+            return
         if args.mode != "move":
             return
         if selected["idx"] is None:
@@ -258,11 +368,21 @@ def main() -> None:
         _save_name_overrides(name_overrides_path, names)
         fig.canvas.draw_idle()
 
+    def on_toggle_style(_event):
+        if args.mode != "label":
+            return
+        label_style["value"] = "pie" if label_style["value"] == "icons" else "icons"
+        if toggle_button is not None:
+            toggle_button.label.set_text(f"Style: {label_style['value']}")
+        _update_label_overlay()
+
     fig.canvas.mpl_connect("button_press_event", on_press)
     fig.canvas.mpl_connect("button_release_event", on_release)
     fig.canvas.mpl_connect("motion_notify_event", on_motion)
     if save_button is not None:
         save_button.on_clicked(on_save_name)
+    if toggle_button is not None:
+        toggle_button.on_clicked(on_toggle_style)
 
     plt.show()
 
