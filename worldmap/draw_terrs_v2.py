@@ -13,6 +13,7 @@ MIN_COMPONENT_SIZE = 10000
 SEED_TRIES = 5
 RELAX_ITERS = 5
 WARP_STRENGTH = 18.0
+ICON_PREVIEW_COUNT = 3
 
 
 def _build_palette(count: int) -> list[tuple[int, int, int]]:
@@ -673,6 +674,7 @@ def add_name_labels(
     *,
     icons_dir: Path | None = None,
     icon_size: int = 14,
+    icon_count_per_resource: int = 1,
 ) -> np.ndarray:
     """Draw territory names at seed centers."""
     pil = Image.fromarray(image)
@@ -704,8 +706,11 @@ def add_name_labels(
         )
         draw.text((tx, ty), text, fill=(0, 0, 0), font=font)
         if icon_cache:
+            icons = []
+            for icon in icon_order:
+                icons.extend([icon] * max(icon_count_per_resource, 1))
             text_width = bbox[2] - bbox[0]
-            total_width = icon_size * len(icon_order) + 4 * (len(icon_order) - 1)
+            total_width = icon_size * len(icons) + 4 * (len(icons) - 1)
             start_x = int(tx + max((text_width - total_width) / 2, 0))
             icon_y = bbox[3] + 6
             bg_left = start_x - pad
@@ -717,7 +722,7 @@ def add_name_labels(
                 fill=(255, 255, 255),
             )
             cur_x = start_x
-            for icon in icon_order:
+            for icon in icons:
                 img = icon_cache.get(icon)
                 if img:
                     pil.paste(img, (cur_x, icon_y), mask=img)
@@ -875,6 +880,7 @@ def main():
         label_centers,
         names,
         icons_dir=icons_dir,
+        icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
     Image.fromarray(labeled).save("world_map_32_internal_labeled.png", optimize=True)
 
@@ -885,6 +891,7 @@ def main():
         label_centers,
         names,
         icons_dir=icons_dir,
+        icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
     Image.fromarray(filled_labeled).save("world_map_32_filled_labeled.png", optimize=True)
 
