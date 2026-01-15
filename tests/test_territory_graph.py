@@ -5,6 +5,7 @@ from peacegame.territory_graph import (
     average_degree,
     build_territory_graph,
     compute_legal_cession_lists,
+    load_fixed_map,
 )
 
 
@@ -69,6 +70,33 @@ class TerritoryGraphTests(unittest.TestCase):
                 continue
             for receiver, terrs in outbound.get(agent, {}).items():
                 self.assertNotIn(capital, terrs)
+
+    def test_fixed_map_assignments_deterministic(self) -> None:
+        names, graph, positions = load_fixed_map()
+        agents = ["Alpha", "Beta", "Gamma", "Delta"]
+        targets = {agent: 8 for agent in agents}
+        assigned_a, capitals_a = assign_territories_round_robin(
+            agents,
+            graph,
+            positions,
+            seed=17,
+            return_capitals=True,
+            target_counts=targets,
+        )
+        assigned_b, capitals_b = assign_territories_round_robin(
+            agents,
+            graph,
+            positions,
+            seed=17,
+            return_capitals=True,
+            target_counts=targets,
+        )
+        self.assertEqual(assigned_a, assigned_b)
+        self.assertEqual(capitals_a, capitals_b)
+        self.assertEqual(set(graph.keys()), set(names))
+        self.assertEqual(sum(len(v) for v in assigned_a.values()), 32)
+        for agent in agents:
+            self.assertEqual(len(assigned_a[agent]), 8)
 
 
 if __name__ == "__main__":

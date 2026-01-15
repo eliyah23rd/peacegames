@@ -13,6 +13,7 @@ from .territory_graph import (
     assign_territories_round_robin,
     compute_legal_cession_lists,
     is_legal_cession,
+    load_fixed_map,
     load_territory_names,
 )
 
@@ -299,26 +300,23 @@ class ResourceSimulationEngine:
         provided_territories = sorted(
             {t for terrs in self.agent_territories.values() for t in terrs}
         )
+        target_counts: Dict[str, int] | None = None
         if use_generated_territories:
-            desired_count = len(provided_territories)
-            territory_names = load_territory_names(Path("names") / "territories.txt")
-            if desired_count > 0:
-                if len(territory_names) < desired_count:
-                    territory_names.extend(
-                        [f"Terr{i}" for i in range(len(territory_names), desired_count)]
-                    )
-                territory_names = territory_names[:desired_count]
+            target_counts = {agent: len(terrs) for agent, terrs in self.agent_territories.items()}
+            if not any(target_counts.values()):
+                target_counts = None
+            territory_names, self.territory_graph, self.territory_positions = load_fixed_map()
         else:
             territory_names = provided_territories
             if not territory_names:
                 territory_names = load_territory_names(Path("names") / "territories.txt")
 
-        from .territory_graph import build_territory_graph
+            from .territory_graph import build_territory_graph
 
-        self.territory_graph, self.territory_positions = build_territory_graph(
-            territory_names,
-            seed=territory_seed,
-        )
+            self.territory_graph, self.territory_positions = build_territory_graph(
+                territory_names,
+                seed=territory_seed,
+            )
         self.territory_names = sorted(self.territory_graph.keys())
         if use_generated_territories or all(len(terrs) == 0 for terrs in self.agent_territories.values()):
             assigned, capitals = assign_territories_round_robin(
@@ -327,6 +325,7 @@ class ResourceSimulationEngine:
                 self.territory_positions,
                 seed=territory_seed,
                 return_capitals=True,
+                target_counts=target_counts,
             )
             self.agent_territories = {k: set(v) for k, v in assigned.items()}
             self.capital_territories = dict(capitals)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
 from pathlib import Path
 from typing import Dict, Iterable, List, Set, Tuple
@@ -46,11 +47,25 @@ def assign_territories_round_robin(
     *,
     seed: int | None = None,
     return_capitals: bool = False,
+    target_counts: Dict[str, int] | None = None,
 ) -> Dict[str, Set[str]] | tuple[Dict[str, Set[str]], Dict[str, str]]:
     """Assign territories by farthest-first seeds, then round-robin adjacency growth."""
     rng = random.Random(seed)
     territories = sorted(graph.keys())
     if not territories or not agent_names:
+        return {agent: set() for agent in agent_names}
+
+    targets: Dict[str, int] | None = None
+    if target_counts:
+        targets = {agent: max(int(target_counts.get(agent, 0)), 0) for agent in agent_names}
+        total_target = sum(targets.values())
+        if total_target > len(territories):
+            targets = None
+
+    active_agents = [
+        agent for agent in agent_names if targets is None or targets.get(agent, 0) > 0
+    ]
+    if not active_agents:
         return {agent: set() for agent in agent_names}
 
     unassigned = set(territories)
@@ -60,7 +75,10 @@ def assign_territories_round_robin(
     seeds: List[str] = []
     seeds.append(rng.choice(territories))
     unassigned.remove(seeds[0])
-    for _ in range(1, min(len(agent_names), len(territories))):
+    max_seeds = min(len(active_agents), len(territories))
+    if targets is not None:
+        max_seeds = min(max_seeds, sum(targets.values()))
+    for _ in range(1, max_seeds):
         best = None
         best_dist = -1
         for terr in sorted(unassigned):
@@ -75,16 +93,35 @@ def assign_territories_round_robin(
         unassigned.remove(best)
 
     capitals: Dict[str, str] = {}
-    for agent, terr in zip(agent_names, seeds):
+    for agent, terr in zip(active_agents, seeds):
         assigned[agent].add(terr)
         capitals[agent] = terr
 
     # Round-robin growth by adjacency.
     stalled = 0
     idx = 0
-    while unassigned and stalled < len(agent_names):
-        agent = agent_names[idx % len(agent_names)]
+    total_target = sum(targets.values()) if targets is not None else len(territories)
+    total_assigned = sum(len(v) for v in assigned.values())
+    while unassigned and total_assigned < total_target:
+        agent = active_agents[idx % len(active_agents)]
         idx += 1
+        if targets is not None and len(assigned[agent]) >= targets.get(agent, 0):
+            stalled += 1
+            if stalled >= len(active_agents):
+                candidates = [
+                    a
+                    for a in active_agents
+                    if targets is None or len(assigned[a]) < targets.get(a, 0)
+                ]
+                if not candidates:
+                    break
+                agent = min(candidates, key=lambda a: (len(assigned[a]), a))
+                best = rng.choice(sorted(unassigned))
+                assigned[agent].add(best)
+                unassigned.remove(best)
+                total_assigned += 1
+                stalled = 0
+            continue
 
         frontier = set()
         for terr in sorted(assigned[agent]):
@@ -93,6 +130,20 @@ def assign_territories_round_robin(
 
         if not frontier:
             stalled += 1
+            if stalled >= len(active_agents):
+                candidates = [
+                    a
+                    for a in active_agents
+                    if targets is None or len(assigned[a]) < targets.get(a, 0)
+                ]
+                if not candidates:
+                    break
+                agent = min(candidates, key=lambda a: (len(assigned[a]), a))
+                best = rng.choice(sorted(unassigned))
+                assigned[agent].add(best)
+                unassigned.remove(best)
+                total_assigned += 1
+                stalled = 0
             continue
 
         stalled = 0
@@ -108,6 +159,7 @@ def assign_territories_round_robin(
             best = rng.choice(sorted(frontier))
         assigned[agent].add(best)
         unassigned.remove(best)
+        total_assigned += 1
 
     if return_capitals:
         return assigned, capitals
@@ -266,6 +318,40 @@ def _load_names(path: Path) -> List[str]:
 
 def load_territory_names(path: Path) -> List[str]:
     return _load_names(path)
+
+
+def load_fixed_map(
+    path: Path | None = None,
+) -> tuple[List[str], Dict[str, Set[str]], Dict[str, Coord]]:
+    if path is None:
+        path = Path(__file__).resolve().parent.parent / "worldmap" / "world_territories_32.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Fixed map JSON not found: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    territories = payload.get("territories", [])
+    id_to_name = {t["id"]: t["name"] for t in territories if "id" in t and "name" in t}
+    positions: Dict[str, Coord] = {}
+    graph: Dict[str, Set[str]] = {}
+    for terr in territories:
+        name = terr.get("name")
+        center = terr.get("center")
+        if not name or not isinstance(center, list) or len(center) != 2:
+            continue
+        positions[name] = (int(center[0]), int(center[1]))
+        graph.setdefault(name, set())
+    for terr in territories:
+        name = terr.get("name")
+        if not name or name not in graph:
+            continue
+        for adj_id in terr.get("adjacent", []) or []:
+            adj_name = id_to_name.get(adj_id)
+            if not adj_name or adj_name == name:
+                continue
+            if adj_name not in graph:
+                continue
+            graph[name].add(adj_name)
+            graph[adj_name].add(name)
+    return sorted(graph.keys()), graph, positions
 
 
 def _render_layout_png(
