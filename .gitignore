@@ -4,3 +4,16 @@
 round_data/
 experiments/*.json
 !experiments/configs/*.json
+codex_sessions.txt
+scratch.txt
+welfare_animation.gif
+visualizations/
+world_map_32_*.png
+world_territories_32.json
+worldmap/*.png
+worldmap/*.jpeg
+worldmap/*.json
+worldmap/ne_10m_land/
+worldmap/ne_10m_land.zip
+worldmap/draw_terrs.py
+worldmap/wm_gen.py
