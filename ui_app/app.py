@@ -249,18 +249,19 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
                 agent: palette[idx % len(palette)] for idx, agent in enumerate(agents)
             }
 
-            from peacegame.territory_graph import PIE_COLORS, render_ownership_png
+            from peacegame.territory_graph import PIE_COLORS, PIE_ORDER
+            from peacegame.worldmap_renderer import render_world_map_png
 
             capital_pies = _build_capital_pies(payload, turn_idx)
 
-            img = render_ownership_png(
-                territory_names,
-                positions,
-                owners,
-                owner_colors,
+            owner_by_name = {name: owner for name, owner in zip(territory_names, owners)}
+            img = render_world_map_png(
+                owner_by_name=owner_by_name,
+                owner_colors=owner_colors,
                 territory_resources=territory_resources,
                 capital_pies=capital_pies,
                 pie_colors=PIE_COLORS,
+                pie_order=PIE_ORDER,
             )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "image/png")

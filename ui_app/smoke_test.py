@@ -8,7 +8,8 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR.parent) not in sys.path:
     sys.path.insert(0, str(BASE_DIR.parent))
 
-from peacegame.territory_graph import render_ownership_png
+from peacegame.territory_graph import PIE_COLORS, PIE_ORDER
+from peacegame.worldmap_renderer import render_world_map_png
 
 
 def _find_latest_round_data() -> Path | None:
@@ -37,10 +38,6 @@ def main() -> int:
         print(f"Missing territory data in {data_path.name}")
         return 1
 
-    positions = {
-        name: tuple(territory_positions.get(name, (0, 0)))
-        for name in territory_names
-    }
     owners = territory_owners[0]
     palette = [
         "#34a39a",
@@ -70,13 +67,14 @@ def main() -> int:
                 "welfare": 1.0,
             }
 
-    img = render_ownership_png(
-        territory_names,
-        positions,
-        owners,
-        owner_colors,
+    owner_by_name = {name: owner for name, owner in zip(territory_names, owners)}
+    img = render_world_map_png(
+        owner_by_name=owner_by_name,
+        owner_colors=owner_colors,
         territory_resources=territory_resources,
         capital_pies=capital_pies,
+        pie_colors=PIE_COLORS,
+        pie_order=PIE_ORDER,
     )
     if not img:
         print("Map render returned empty image.")
