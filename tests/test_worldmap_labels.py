@@ -48,3 +48,10 @@ class WorldMapLabelTests(unittest.TestCase):
             gen.Image.fromarray(board).save(board_path)
             out = gen.overlay_notice_board(image, board_path, (5, 5, 50, 50))
             self.assertEqual(out.shape, image.shape)
+
+    def test_compute_notice_board_box(self):
+        land = np.zeros((gen.H, gen.W), dtype=bool)
+        box = gen.compute_notice_board_box(land, ratio=2.0, margin=10, ignore_bottom=0)
+        self.assertEqual(len(box), 4)
+        self.assertGreater(box[2], box[0])
+        self.assertGreater(box[3], box[1])

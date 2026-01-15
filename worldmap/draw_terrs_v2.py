@@ -15,7 +15,12 @@ SEED_TRIES = 5
 RELAX_ITERS = 5
 WARP_STRENGTH = 18.0
 ICON_PREVIEW_COUNT = 3
-NOTICE_BOARD_BOX = (20, 430, 310, 780)
+NOTICE_BOARD_BOX = None
+NOTICE_BOARD_IGNORE_BOTTOM = 120
+NOTICE_BOARD_MARGIN = 0
+NOTICE_BOARD_RATIO_MULTIPLIER = 1.0
+NOTICE_BOARD_WIDTH_SCALE = 3.0
+NOTICE_BOARD_HEIGHT_SCALE = 1.5
 RESOURCE_COLORS = {
     "energy": (235, 193, 70),
     "minerals": (160, 160, 160),
@@ -70,30 +75,111 @@ def build_label_positions(
             positions.append((int(cx), int(cy)))
     return positions
 
+def compute_notice_board_box(
+    land: np.ndarray,
+    *,
+    ratio: float = 2.0,
+    margin: int = NOTICE_BOARD_MARGIN,
+    ignore_bottom: int = NOTICE_BOARD_IGNORE_BOTTOM,
+) -> tuple[int, int, int, int]:
+    comp_lab, ncomp = label_components(land)
+    sizes = np.bincount(comp_lab.ravel())
+    land_safe = np.zeros_like(land, dtype=bool)
+    for comp_id in range(1, ncomp + 1):
+        if sizes[comp_id] < MIN_COMPONENT_SIZE:
+            continue
+        ys, _xs = np.where(comp_lab == comp_id)
+        if ys.size == 0:
+            continue
+        if ys.mean() > H * 0.78:
+            continue
+        land_safe[comp_lab == comp_id] = True
+    if ignore_bottom > 0:
+        land_safe[-ignore_bottom:, :] = False
+
+    widths = []
+    for y in range(H):
+        land_x = np.where(land_safe[y])[0]
+        if land_x.size == 0:
+            widths.append(W)
+        else:
+            widths.append(int(land_x.min()))
+
+    x0 = margin
+    y1 = H - margin
+    max_h = int(min((W - margin - x0) / max(ratio, 0.1), y1 - margin))
+    best = None
+    for h in range(max_h, 0, -1):
+        y0 = y1 - h
+        if y0 < margin:
+            continue
+        min_width = min(widths[y0:y1])
+        effective_width = min_width - margin - x0
+        if effective_width <= 0:
+            continue
+        w = int(h * ratio)
+        if w <= effective_width:
+            best = (x0, y0, x0 + w, y1)
+            break
+    if best is None:
+        best = (x0, max(y1 - 10, margin), min(x0 + 10, W - margin), y1)
+
+    base_w = best[2] - best[0]
+    base_h = best[3] - best[1]
+    target_w = int(max(1, base_w * NOTICE_BOARD_WIDTH_SCALE))
+    target_h = int(max(1, base_h * NOTICE_BOARD_HEIGHT_SCALE))
+    max_h = int(min((W - margin - x0) / max(ratio, 0.1), y1 - margin))
+    max_h = min(max_h, target_h)
+    chosen = None
+    for h in range(max_h, 0, -1):
+        y0 = y1 - h
+        if y0 < margin:
+            continue
+        min_width = min(widths[y0:y1])
+        effective_width = min_width - margin - x0
+        if effective_width <= 0:
+            continue
+        req_w = int(target_w * (h / max(target_h, 1)))
+        if req_w <= effective_width:
+            chosen = (x0, y0, x0 + req_w, y1)
+            break
+    if chosen is None:
+        chosen = best
+    return chosen
+
 def overlay_notice_board(
     image: np.ndarray,
     board_path: Path,
     box: tuple[int, int, int, int],
+    *,
+    stretch: bool = True,
+    board_image: Image.Image | None = None,
 ) -> np.ndarray:
     if not board_path.exists():
         return image
     base = Image.fromarray(image).convert("RGBA")
-    board = Image.open(board_path).convert("RGBA")
-    board_rgb = board.convert("RGB")
-    arr = np.array(board_rgb)
-    mask = (arr < 245).any(axis=2)
-    if mask.any():
-        ys, xs = np.where(mask)
-        x0, x1 = int(xs.min()), int(xs.max()) + 1
-        y0, y1 = int(ys.min()), int(ys.max()) + 1
-        board = board.crop((x0, y0, x1, y1))
+    if board_image is None:
+        board = Image.open(board_path).convert("RGBA")
+        board_rgb = board.convert("RGB")
+        arr = np.array(board_rgb)
+        mask = (arr < 245).any(axis=2)
+        if mask.any():
+            ys, xs = np.where(mask)
+            x0, x1 = int(xs.min()), int(xs.max()) + 1
+            y0, y1 = int(ys.min()), int(ys.max()) + 1
+            board = board.crop((x0, y0, x1, y1))
+    else:
+        board = board_image.convert("RGBA")
     box_w = box[2] - box[0]
     box_h = box[3] - box[1]
-    scale = min(box_w / board.width, box_h / board.height)
-    new_size = (
-        max(1, int(board.width * scale)),
-        max(1, int(board.height * scale)),
-    )
+    if stretch:
+        new_size = (max(1, int(box_w)), max(1, int(box_h)))
+    else:
+        scale = min(box_w / board.width, box_h / board.height)
+        new_size = (
+            max(1, int(board.width * scale)),
+            max(1, int(board.height * scale)),
+        )
     board = board.resize(new_size, Image.Resampling.LANCZOS)
     x = int(box[0] + (box_w - new_size[0]) / 2)
     y = int(box[1] + (box_h - new_size[1]) / 2)
@@ -1099,6 +1185,27 @@ def main():
     label_centers = compute_label_centers(labels)
     label_positions = build_label_positions(label_centers, label_overrides_path)
     notice_board_path = out_dir / "notice_board.jpeg"
+    notice_board = None
+    notice_ratio = 2.0
+    if notice_board_path.exists():
+        board = Image.open(notice_board_path).convert("RGBA")
+        board_rgb = board.convert("RGB")
+        arr = np.array(board_rgb)
+        mask = (arr < 245).any(axis=2)
+        if mask.any():
+            ys, xs = np.where(mask)
+            x0, x1 = int(xs.min()), int(xs.max()) + 1
+            y0, y1 = int(ys.min()), int(ys.max()) + 1
+            board = board.crop((x0, y0, x1, y1))
+        notice_board = board
+        aspect = board.width / max(board.height, 1)
+        notice_ratio = aspect * NOTICE_BOARD_RATIO_MULTIPLIER
+    notice_box = compute_notice_board_box(
+        land,
+        ratio=notice_ratio,
+        margin=NOTICE_BOARD_MARGIN,
+        ignore_bottom=NOTICE_BOARD_IGNORE_BOTTOM,
+    )
     icons_dir = Path(__file__).resolve().parents[1] / "icons"
     labeled = add_name_labels(
         np.array(Image.fromarray(out_map, mode="L").convert("RGB")),
@@ -1107,7 +1214,12 @@ def main():
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
-    labeled = overlay_notice_board(labeled, notice_board_path, NOTICE_BOARD_BOX)
+    labeled = overlay_notice_board(
+        labeled,
+        notice_board_path,
+        notice_box,
+        board_image=notice_board,
+    )
     Image.fromarray(labeled).save(
         out_dir / "world_map_32_internal_labeled.png",
         optimize=True,
@@ -1120,7 +1232,12 @@ def main():
         icon_count_per_resource=ICON_PREVIEW_COUNT,
         resource_style="pie",
     )
-    labeled_pie = overlay_notice_board(labeled_pie, notice_board_path, NOTICE_BOARD_BOX)
+    labeled_pie = overlay_notice_board(
+        labeled_pie,
+        notice_board_path,
+        notice_box,
+        board_image=notice_board,
+    )
     Image.fromarray(labeled_pie).save(
         out_dir / "world_map_32_internal_labeled_pie.png",
         optimize=True,
@@ -1135,7 +1252,12 @@ def main():
         icons_dir=icons_dir,
         icon_count_per_resource=ICON_PREVIEW_COUNT,
     )
-    filled_labeled = overlay_notice_board(filled_labeled, notice_board_path, NOTICE_BOARD_BOX)
+    filled_labeled = overlay_notice_board(
+        filled_labeled,
+        notice_board_path,
+        notice_box,
+        board_image=notice_board,
+    )
     Image.fromarray(filled_labeled).save(
         out_dir / "world_map_32_filled_labeled.png",
         optimize=True,
@@ -1151,7 +1273,8 @@ def main():
     filled_labeled_pie = overlay_notice_board(
         filled_labeled_pie,
         notice_board_path,
-        NOTICE_BOARD_BOX,
+        notice_box,
+        board_image=notice_board,
     )
     Image.fromarray(filled_labeled_pie).save(
         out_dir / "world_map_32_filled_labeled_pie.png",
@@ -1173,7 +1296,8 @@ def main():
     random_filled_labeled = overlay_notice_board(
         random_filled_labeled,
         notice_board_path,
-        NOTICE_BOARD_BOX,
+        notice_box,
+        board_image=notice_board,
     )
     Image.fromarray(random_filled_labeled).save(
         out_dir / "world_map_32_filled_random_icons.png",
