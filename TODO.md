@@ -11,7 +11,10 @@
 - [x] Re-ran `python run_all_tests.py` after changes (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO updates (2026-02-02).
 - [x] Committed and pushed changes (including latest TODO update).
+- [x] Ran `python run_all_tests.py` before updating TODO for sim-viewer reminder (2026-02-02).
+- [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 
 ## Notes & Insights
 - Keep this file updated for each user request: add tasks, mark done, and capture notable decisions.
 - Skill created at `skills/peacegames/` with runbook in `skills/peacegames/references/commands.md`.
+- User asked how to view end-of-round data and world map after a new sim.
