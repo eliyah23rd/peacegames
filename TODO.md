@@ -2,6 +2,7 @@
 
 ## To Do
 - [ ] Add any additional repo workflows if discovered in future requests.
+- [ ] If requested, update map JSON generation to use `name_overrides.json` for UI labels.
 
 ## Done
 - [x] Ran `python run_all_tests.py` before changes (2026-02-02).
@@ -35,3 +36,4 @@
 - User requested updating the skill to only require tests when changing .py or data files.
 - User reported territory names not matching expected map overlays.
 - User noted `world_map_32_internal_labeled.png` has the correct names; likely mismatch between UI JSON cache and updated map assets.
+- Root cause: `draw_terrs_v2.py` writes `world_territories_32.json` using default names, not `name_overrides.json`.
