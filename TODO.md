@@ -34,3 +34,4 @@
 - User asked where the skills file and TODO are located.
 - User requested updating the skill to only require tests when changing .py or data files.
 - User reported territory names not matching expected map overlays.
+- User noted `world_map_32_internal_labeled.png` has the correct names; likely mismatch between UI JSON cache and updated map assets.
