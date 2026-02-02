@@ -1306,7 +1306,7 @@ def main():
 
     # 7) Adjacency + JSON
     ids_by_idx = {i: TERRITORIES[i][0] for i in range(len(TERRITORIES))}
-    names_by_id = {tid: name for tid, name, _ in TERRITORIES}
+    names_by_id = {tid: names[i] for i, (tid, _name, _region) in enumerate(TERRITORIES)}
 
     adj = adjacency_from_labels(labels, land, ids_by_idx)
     add_sea_links(adj)
@@ -1316,11 +1316,11 @@ def main():
         "image_size": [W, H],
         "territories": []
     }
-    for i, (tid, name, _region) in enumerate(TERRITORIES):
+    for i, (tid, _name, _region) in enumerate(TERRITORIES):
         cx, cy = label_centers[i]
         data["territories"].append({
             "id": tid,
-            "name": name,
+            "name": names_by_id[tid],
             "center": [int(cx), int(cy)],
             "adjacent": sorted(adj[tid])
         })

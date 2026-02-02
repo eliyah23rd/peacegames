@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -55,3 +56,18 @@ class WorldMapLabelTests(unittest.TestCase):
         self.assertEqual(len(box), 4)
         self.assertGreater(box[2], box[0])
         self.assertGreater(box[3], box[1])
+
+    def test_world_territory_names_follow_overrides(self):
+        root = Path(__file__).resolve().parents[1]
+        overrides_path = root / "worldmap" / "name_overrides.json"
+        data_path = root / "worldmap" / "world_territories_32.json"
+        if not overrides_path.exists():
+            self.skipTest(f"Missing overrides: {overrides_path}")
+        if not data_path.exists():
+            self.skipTest(f"Missing territory data: {data_path}")
+        overrides = json.loads(overrides_path.read_text(encoding="utf-8"))
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        names_by_id = {t["id"]: t.get("name") for t in data.get("territories", [])}
+        for tid, name in overrides.items():
+            self.assertIn(tid, names_by_id, f"Missing territory id in JSON: {tid}")
+            self.assertEqual(names_by_id[tid], name)

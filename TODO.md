@@ -2,7 +2,6 @@
 
 ## To Do
 - [ ] Add any additional repo workflows if discovered in future requests.
-- [ ] If requested, update map JSON generation to use `name_overrides.json` for UI labels.
 
 ## Done
 - [x] Ran `python run_all_tests.py` before changes (2026-02-02).
@@ -20,6 +19,10 @@
 - [x] Ran `python run_all_tests.py` before updating TODO for skills/todo location question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Ran `python run_all_tests.py` before responding to map overlay/name mismatch question (2026-02-02).
+- [x] Ran `python run_all_tests.py` before editing map generator for name overrides (2026-02-02).
+- [x] Updated map JSON generation to use `name_overrides.json` for UI labels.
+- [x] Applied permanent fix and regenerated map outputs.
+- [x] Re-ran `python run_all_tests.py` after map generator update (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -37,3 +40,4 @@
 - User reported territory names not matching expected map overlays.
 - User noted `world_map_32_internal_labeled.png` has the correct names; likely mismatch between UI JSON cache and updated map assets.
 - Root cause: `draw_terrs_v2.py` writes `world_territories_32.json` using default names, not `name_overrides.json`.
+- Regenerated `worldmap/world_territories_32.json` after applying name overrides.
