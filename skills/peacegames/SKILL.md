@@ -14,7 +14,8 @@ Work in `/home/eli/dev/peacegames` with the repo runbook. Keep `TODO.md` updated
 - Update `TODO.md` at the start and end of each user request: add tasks, mark completed items, and append brief notes/insights.
 - Treat this skill as the default for all Peacegames repo work (keep it front-of-mind).
 - When a new rule is provided (by user or learned), update `skills/peacegames/SKILL.md` and note the change in `TODO.md`.
-- Follow repo workflow requirements (tests before/after changes, commit + push when done).
+- Only run tests when you plan to change `.py` or data files; for exploration or Q&A without file changes, skip tests.
+- Follow repo workflow requirements (commit + push when done; run tests only when changing `.py` or data files).
 
 ## Quick Start
 

@@ -13,6 +13,9 @@
 - [x] Committed and pushed changes (including latest TODO update).
 - [x] Ran `python run_all_tests.py` before updating TODO for sim-viewer reminder (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
+- [x] Ran `python run_all_tests.py` before updating skill file for test policy (2026-02-02).
+- [x] Updated `skills/peacegames/SKILL.md` with conditional test-running rule.
+- [x] Re-ran `python run_all_tests.py` after skill update (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for skills/todo location question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
@@ -28,3 +31,4 @@
 - User asked whether the latest sim used fixed-map territories from `worldmap/world_territories_32.json`.
 - User ran `python -m run_llm_resource_simulation initial_setup/resource_demo_4p.json --model gpt-5.1 diplomacy,opportunist,austerity,sneaky`.
 - User asked where the skills file and TODO are located.
+- User requested updating the skill to only require tests when changing .py or data files.
