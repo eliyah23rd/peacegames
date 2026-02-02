@@ -18,6 +18,7 @@
 - [x] Re-ran `python run_all_tests.py` after skill update (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for skills/todo location question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
+- [x] Ran `python run_all_tests.py` before responding to map overlay/name mismatch question (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -32,3 +33,4 @@
 - User ran `python -m run_llm_resource_simulation initial_setup/resource_demo_4p.json --model gpt-5.1 diplomacy,opportunist,austerity,sneaky`.
 - User asked where the skills file and TODO are located.
 - User requested updating the skill to only require tests when changing .py or data files.
+- User reported territory names not matching expected map overlays.
