@@ -33,6 +33,7 @@
 - [x] Ran `python run_all_tests.py` before fixing blank map issue (2026-02-02).
 - [x] Restored hidden map legend container and cache-busted app.js to fix blank map.
 - [x] Re-ran `python run_all_tests.py` after adding map render logging (2026-02-02).
+- [x] Re-ran `python run_all_tests.py` after fixing map logging syntax error (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -56,5 +57,6 @@
 - User wants legend moved right, bolder/bright text, and external legend removed.
 - Removed map legend from UI to avoid duplicate legend above map.
 - User reports map not showing after UI restart; likely cached JS or /api/map failure.
+- Fixed syntax error in /api/map logging f-string.
 - Added server-side map render logs for debugging.
 - User reports map not showing after UI changes; likely cached JS or missing mapLegend element.

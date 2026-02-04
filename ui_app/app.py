@@ -269,7 +269,7 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
                 self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Map render failed")
                 return
             print(
-                f\"[map] file={file_name} turn={turn_val} bytes={len(img)} owners={len(owners)} agents={len(agents)}\"
+                f"[map] file={file_name} turn={turn_val} bytes={len(img)} owners={len(owners)} agents={len(agents)}"
             )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "image/png")
