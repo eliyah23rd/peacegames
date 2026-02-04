@@ -255,13 +255,21 @@ class RoundDataHandler(SimpleHTTPRequestHandler):
             capital_pies = _build_capital_pies(payload, turn_idx)
 
             owner_by_name = {name: owner for name, owner in zip(territory_names, owners)}
-            img = render_world_map_png(
-                owner_by_name=owner_by_name,
-                owner_colors=owner_colors,
-                territory_resources=territory_resources,
-                capital_pies=capital_pies,
-                pie_colors=PIE_COLORS,
-                pie_order=PIE_ORDER,
+            try:
+                img = render_world_map_png(
+                    owner_by_name=owner_by_name,
+                    owner_colors=owner_colors,
+                    territory_resources=territory_resources,
+                    capital_pies=capital_pies,
+                    pie_colors=PIE_COLORS,
+                    pie_order=PIE_ORDER,
+                )
+            except Exception as exc:  # pragma: no cover - debugging helper
+                print(f"[map] error file={file_name} turn={turn_val}: {exc}")
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Map render failed")
+                return
+            print(
+                f\"[map] file={file_name} turn={turn_val} bytes={len(img)} owners={len(owners)} agents={len(agents)}\"
             )
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "image/png")
