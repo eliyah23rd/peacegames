@@ -186,7 +186,8 @@ def _draw_notice_legend(
         return
 
     pad = max(6, int(min(box_w, box_h) * 0.05))
-    inner_w = max(1, box_w - pad * 2)
+    shift_x = max(10, int(box_w * 0.05))
+    inner_w = max(1, box_w - pad * 2 - shift_x)
     inner_h = max(1, box_h - pad * 2)
 
     players = sorted(owner_colors.keys())
@@ -203,21 +204,36 @@ def _draw_notice_legend(
     wm = _load_worldmap_module()
     font = wm.load_label_font(font_size)
     draw = ImageDraw.Draw(image)
-    text_color = "#4a423c"
+    text_color = "#2df56f"
+    stroke_color = "#1b2f21"
+
+    def _draw_text(x: int, y: int, text: str) -> None:
+        try:
+            draw.text(
+                (x, y),
+                text,
+                font=font,
+                fill=text_color,
+                stroke_width=1,
+                stroke_fill=stroke_color,
+            )
+        except TypeError:
+            draw.text((x, y), text, font=font, fill=text_color)
+            draw.text((x + 1, y), text, font=font, fill=text_color)
 
     def _draw_heading(text: str, y: int) -> int:
-        draw.text((x0 + pad, y), text, font=font, fill=text_color)
+        _draw_text(x0 + pad + shift_x, y, text)
         return y + line_h
 
     def _draw_swatch_label(color: str, label: str, y: int) -> int:
         swatch = max(6, line_h - 2)
         swatch_y = y + max(0, (line_h - swatch) // 2)
         draw.rectangle(
-            (x0 + pad, swatch_y, x0 + pad + swatch, swatch_y + swatch),
+            (x0 + pad + shift_x, swatch_y, x0 + pad + shift_x + swatch, swatch_y + swatch),
             fill=color,
-            outline=text_color,
+            outline=stroke_color,
         )
-        draw.text((x0 + pad + swatch + 6, y), label, font=font, fill=text_color)
+        _draw_text(x0 + pad + shift_x + swatch + 6, y, label)
         return y + line_h
 
     def _draw_icon_label(icon_name: str, label: str, y: int) -> int:
@@ -226,13 +242,17 @@ def _draw_notice_legend(
         if icon_path.exists():
             icon = Image.open(icon_path).convert("RGBA")
             icon = icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
-            image.paste(icon, (x0 + pad, y + max(0, (line_h - icon_size) // 2)), icon)
+            image.paste(
+                icon,
+                (x0 + pad + shift_x, y + max(0, (line_h - icon_size) // 2)),
+                icon,
+            )
         else:
             draw.rectangle(
-                (x0 + pad, y, x0 + pad + icon_size, y + icon_size),
-                outline=text_color,
+                (x0 + pad + shift_x, y, x0 + pad + shift_x + icon_size, y + icon_size),
+                outline=stroke_color,
             )
-        draw.text((x0 + pad + icon_size + 6, y), label, font=font, fill=text_color)
+        _draw_text(x0 + pad + shift_x + icon_size + 6, y, label)
         return y + line_h
 
     y = y0 + pad
