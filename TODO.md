@@ -23,6 +23,9 @@
 - [x] Updated map JSON generation to use `name_overrides.json` for UI labels.
 - [x] Applied permanent fix and regenerated map outputs.
 - [x] Re-ran `python run_all_tests.py` after map generator update (2026-02-02).
+- [x] Ran `python run_all_tests.py` before updating notice-board legend rendering (2026-02-02).
+- [x] Fit legend data (players, pie colors, resource icons) into notice board overlay.
+- [x] Re-ran `python run_all_tests.py` after legend update (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -41,3 +44,5 @@
 - User noted `world_map_32_internal_labeled.png` has the correct names; likely mismatch between UI JSON cache and updated map assets.
 - Root cause: `draw_terrs_v2.py` writes `world_territories_32.json` using default names, not `name_overrides.json`.
 - Regenerated `worldmap/world_territories_32.json` after applying name overrides.
+- User asked to fit legend data into notice board on the map.
+- Added notice-board legend drawing in `peacegame/worldmap_renderer.py`.

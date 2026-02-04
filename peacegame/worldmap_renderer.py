@@ -168,6 +168,85 @@ def _load_world_map_state() -> WorldMapState:
     )
 
 
+def _draw_notice_legend(
+    image: Image.Image,
+    *,
+    notice_box: tuple[int, int, int, int] | None,
+    owner_colors: Dict[str, str],
+    pie_colors: Dict[str, str],
+    pie_order: Iterable[str],
+    icons_dir: Path,
+) -> None:
+    if notice_box is None:
+        return
+    x0, y0, x1, y1 = notice_box
+    box_w = x1 - x0
+    box_h = y1 - y0
+    if box_w <= 0 or box_h <= 0:
+        return
+
+    pad = max(6, int(min(box_w, box_h) * 0.05))
+    inner_w = max(1, box_w - pad * 2)
+    inner_h = max(1, box_h - pad * 2)
+
+    players = sorted(owner_colors.keys())
+    pie_items = list(pie_order)
+    resources = [
+        ("Energy", "energy.png"),
+        ("Minerals", "minerals.png"),
+        ("Food", "food.png"),
+    ]
+    total_lines = len(players) + len(pie_items) + len(resources) + 3
+    line_h = max(8, inner_h // max(total_lines, 1))
+    font_size = max(7, min(16, line_h - 1))
+
+    wm = _load_worldmap_module()
+    font = wm.load_label_font(font_size)
+    draw = ImageDraw.Draw(image)
+    text_color = "#4a423c"
+
+    def _draw_heading(text: str, y: int) -> int:
+        draw.text((x0 + pad, y), text, font=font, fill=text_color)
+        return y + line_h
+
+    def _draw_swatch_label(color: str, label: str, y: int) -> int:
+        swatch = max(6, line_h - 2)
+        swatch_y = y + max(0, (line_h - swatch) // 2)
+        draw.rectangle(
+            (x0 + pad, swatch_y, x0 + pad + swatch, swatch_y + swatch),
+            fill=color,
+            outline=text_color,
+        )
+        draw.text((x0 + pad + swatch + 6, y), label, font=font, fill=text_color)
+        return y + line_h
+
+    def _draw_icon_label(icon_name: str, label: str, y: int) -> int:
+        icon_size = max(8, line_h - 2)
+        icon_path = icons_dir / icon_name
+        if icon_path.exists():
+            icon = Image.open(icon_path).convert("RGBA")
+            icon = icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
+            image.paste(icon, (x0 + pad, y + max(0, (line_h - icon_size) // 2)), icon)
+        else:
+            draw.rectangle(
+                (x0 + pad, y, x0 + pad + icon_size, y + icon_size),
+                outline=text_color,
+            )
+        draw.text((x0 + pad + icon_size + 6, y), label, font=font, fill=text_color)
+        return y + line_h
+
+    y = y0 + pad
+    y = _draw_heading("Players", y)
+    for player in players:
+        y = _draw_swatch_label(owner_colors.get(player, "#e5e1dc"), player, y)
+    y = _draw_heading("Capital Pie", y)
+    for key in pie_items:
+        label = str(key).replace("_", " ").title()
+        y = _draw_swatch_label(pie_colors.get(key, "#cccccc"), label, y)
+    y = _draw_heading("Resources", y)
+    for label, icon_name in resources:
+        y = _draw_icon_label(icon_name, label, y)
+
 def render_world_map_png(
     *,
     owner_by_name: Dict[str, str | None],
@@ -208,6 +287,14 @@ def render_world_map_png(
             board_image=state.notice_board,
         )
     image = Image.fromarray(labeled).convert("RGB")
+    _draw_notice_legend(
+        image,
+        notice_box=state.notice_box,
+        owner_colors=owner_colors,
+        pie_colors=pie_colors or {},
+        pie_order=pie_order or (),
+        icons_dir=Path(__file__).resolve().parent.parent / "icons",
+    )
     _draw_capital_pies(
         image,
         capital_pies=capital_pies or {},
