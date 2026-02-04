@@ -29,6 +29,8 @@
 - [x] Ran `python run_all_tests.py` before adjusting notice-board legend layout (2026-02-02).
 - [x] Shifted notice-board legend right, brightened/bolded text, and removed external legend above map.
 - [x] Re-ran `python run_all_tests.py` after legend layout update (2026-02-02).
+- [x] Ran `python run_all_tests.py` before fixing blank map issue (2026-02-02).
+- [x] Restored hidden map legend container and cache-busted app.js to fix blank map.
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -51,3 +53,4 @@
 - Added notice-board legend drawing in `peacegame/worldmap_renderer.py`.
 - User wants legend moved right, bolder/bright text, and external legend removed.
 - Removed map legend from UI to avoid duplicate legend above map.
+- User reports map not showing after UI changes; likely cached JS or missing mapLegend element.
