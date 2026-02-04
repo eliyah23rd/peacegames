@@ -2,6 +2,7 @@
 
 ## To Do
 - [ ] Add any additional repo workflows if discovered in future requests.
+- [ ] Investigate why map image is not loading in UI (check /api/map request + console errors).
 
 ## Done
 - [x] Ran `python run_all_tests.py` before changes (2026-02-02).
@@ -53,4 +54,5 @@
 - Added notice-board legend drawing in `peacegame/worldmap_renderer.py`.
 - User wants legend moved right, bolder/bright text, and external legend removed.
 - Removed map legend from UI to avoid duplicate legend above map.
+- User reports map not showing after UI restart; likely cached JS or /api/map failure.
 - User reports map not showing after UI changes; likely cached JS or missing mapLegend element.
