@@ -199,13 +199,14 @@ def _draw_notice_legend(
     ]
     total_lines = len(players) + len(pie_items) + len(resources) + 3
     line_h = max(8, inner_h // max(total_lines, 1))
-    font_size = max(7, min(16, line_h - 1))
+    font_size = max(8, min(18, line_h))
 
     wm = _load_worldmap_module()
     font = wm.load_label_font(font_size)
     draw = ImageDraw.Draw(image)
-    text_color = "#2df56f"
-    stroke_color = "#1b2f21"
+    text_color = "#3b0a57"
+    stroke_color = "#f6efe4"
+    stroke_width = 1 if font_size < 12 else 2
 
     def _draw_text(x: int, y: int, text: str) -> None:
         try:
@@ -214,7 +215,7 @@ def _draw_notice_legend(
                 text,
                 font=font,
                 fill=text_color,
-                stroke_width=1,
+                stroke_width=stroke_width,
                 stroke_fill=stroke_color,
             )
         except TypeError:

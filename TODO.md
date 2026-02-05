@@ -34,6 +34,9 @@
 - [x] Restored hidden map legend container and cache-busted app.js to fix blank map.
 - [x] Re-ran `python run_all_tests.py` after adding map render logging (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after fixing map logging syntax error (2026-02-02).
+- [x] Ran `python run_all_tests.py` before updating notice-board legend text styling (2026-02-02).
+- [x] Adjusted notice-board legend text color to dark purple and slightly larger font.
+- [x] Re-ran `python run_all_tests.py` after notice-board legend text update (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
