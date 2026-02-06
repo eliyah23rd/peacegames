@@ -1,6 +1,9 @@
+import json
 import unittest
+from pathlib import Path
 
 from peacegame.territory_graph import (
+    _find_reallocation_for_agent,
     assign_territories_round_robin,
     average_degree,
     build_territory_graph,
@@ -97,6 +100,44 @@ class TerritoryGraphTests(unittest.TestCase):
         self.assertEqual(sum(len(v) for v in assigned_a.values()), 32)
         for agent in agents:
             self.assertEqual(len(assigned_a[agent]), 8)
+
+    def test_reallocation_for_stuck_agent(self) -> None:
+        graph = {
+            "A": {"B"},
+            "B": {"A", "C"},
+            "C": {"B", "D"},
+            "D": {"C"},
+        }
+        assigned = {
+            "X": {"A", "B"},
+            "Y": {"C"},
+        }
+        unassigned = {"D"}
+        swap = _find_reallocation_for_agent(
+            "X",
+            assigned=assigned,
+            unassigned=unassigned,
+            graph=graph,
+        )
+        self.assertIsNotNone(swap)
+        owner, target, replacement = swap
+        self.assertEqual(owner, "Y")
+        self.assertEqual(target, "C")
+        self.assertEqual(replacement, "D")
+
+    def test_contiguity_matrix_file(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "tests" / "territory_contiguity.json"
+        self.assertTrue(path.is_file(), f"Missing contiguity file: {path}")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        names = data.get("names", [])
+        matrix = data.get("matrix", [])
+        self.assertEqual(len(matrix), len(names))
+        for row in matrix:
+            self.assertEqual(len(row), len(names))
+        for i in range(len(names)):
+            for j in range(len(names)):
+                self.assertEqual(matrix[i][j], matrix[j][i])
+                self.assertIn(matrix[i][j], (0, 1))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,6 @@
 
 ## To Do
 - [ ] Add any additional repo workflows if discovered in future requests.
-- [ ] Investigate why map image is not loading in UI (check /api/map request + console errors).
 
 ## Done
 - [x] Ran `python run_all_tests.py` before changes (2026-02-02).
@@ -37,6 +36,11 @@
 - [x] Ran `python run_all_tests.py` before updating notice-board legend text styling (2026-02-02).
 - [x] Adjusted notice-board legend text color to dark purple and slightly larger font.
 - [x] Re-ran `python run_all_tests.py` after notice-board legend text update (2026-02-02).
+- [x] Ran `python run_all_tests.py` before changing contiguity table and assignment algorithm (2026-02-02).
+- [x] Created fixed territory contiguity matrix file under tests for manual tweaks.
+- [x] Improved territory assignment to swap territories when an agent is stuck.
+- [x] Resolved map image not loading in UI.
+- [x] Re-ran `python run_all_tests.py` after contiguity/assignment updates (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -63,3 +67,4 @@
 - Fixed syntax error in /api/map logging f-string.
 - Added server-side map render logs for debugging.
 - User reports map not showing after UI changes; likely cached JS or missing mapLegend element.
+- Added `tests/territory_contiguity.json` for fixed-map adjacency matrix edits.

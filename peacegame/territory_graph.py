@@ -116,6 +116,21 @@ def assign_territories_round_robin(
                 if not candidates:
                     break
                 agent = min(candidates, key=lambda a: (len(assigned[a]), a))
+                swap = _find_reallocation_for_agent(
+                    agent,
+                    assigned=assigned,
+                    unassigned=unassigned,
+                    graph=graph,
+                )
+                if swap is not None:
+                    owner, target, replacement = swap
+                    assigned[agent].add(target)
+                    assigned[owner].remove(target)
+                    assigned[owner].add(replacement)
+                    unassigned.remove(replacement)
+                    total_assigned += 1
+                    stalled = 0
+                    continue
                 best = rng.choice(sorted(unassigned))
                 assigned[agent].add(best)
                 unassigned.remove(best)
@@ -139,6 +154,21 @@ def assign_territories_round_robin(
                 if not candidates:
                     break
                 agent = min(candidates, key=lambda a: (len(assigned[a]), a))
+                swap = _find_reallocation_for_agent(
+                    agent,
+                    assigned=assigned,
+                    unassigned=unassigned,
+                    graph=graph,
+                )
+                if swap is not None:
+                    owner, target, replacement = swap
+                    assigned[agent].add(target)
+                    assigned[owner].remove(target)
+                    assigned[owner].add(replacement)
+                    unassigned.remove(replacement)
+                    total_assigned += 1
+                    stalled = 0
+                    continue
                 best = rng.choice(sorted(unassigned))
                 assigned[agent].add(best)
                 unassigned.remove(best)
@@ -164,6 +194,67 @@ def assign_territories_round_robin(
     if return_capitals:
         return assigned, capitals
     return assigned
+
+
+def _is_connected(territories: Set[str], graph: Dict[str, Set[str]]) -> bool:
+    if len(territories) <= 1:
+        return True
+    start = next(iter(territories))
+    seen = {start}
+    stack = [start]
+    while stack:
+        cur = stack.pop()
+        for neighbor in graph.get(cur, set()):
+            if neighbor in territories and neighbor not in seen:
+                seen.add(neighbor)
+                stack.append(neighbor)
+    return len(seen) == len(territories)
+
+
+def _find_reallocation_for_agent(
+    agent: str,
+    *,
+    assigned: Dict[str, Set[str]],
+    unassigned: Set[str],
+    graph: Dict[str, Set[str]],
+) -> tuple[str, str, str] | None:
+    if not unassigned:
+        return None
+    agent_terrs = assigned.get(agent, set())
+    if not agent_terrs:
+        return None
+    owner_by_terr = {
+        terr: owner for owner, terrs in assigned.items() for terr in terrs
+    }
+    candidates: list[tuple[str, str]] = []
+    for terr in sorted(agent_terrs):
+        for neighbor in sorted(graph.get(terr, set())):
+            owner = owner_by_terr.get(neighbor)
+            if owner is None or owner == agent:
+                continue
+            candidates.append((owner, neighbor))
+
+    seen = set()
+    for owner, target in candidates:
+        if (owner, target) in seen:
+            continue
+        seen.add((owner, target))
+        remaining = set(assigned.get(owner, set()))
+        if target not in remaining:
+            continue
+        remaining.remove(target)
+        if not _is_connected(remaining, graph):
+            continue
+        if remaining:
+            frontier = set()
+            for terr in remaining:
+                frontier |= graph.get(terr, set())
+            options = sorted(frontier & unassigned)
+        else:
+            options = sorted(unassigned)
+        for replacement in options:
+            return owner, target, replacement
+    return None
 
 
 def is_legal_cession(
