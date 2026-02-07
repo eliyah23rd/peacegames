@@ -97,9 +97,12 @@ class TerritoryGraphTests(unittest.TestCase):
         self.assertEqual(assigned_a, assigned_b)
         self.assertEqual(capitals_a, capitals_b)
         self.assertEqual(set(graph.keys()), set(names))
-        self.assertEqual(sum(len(v) for v in assigned_a.values()), 32)
+        total = sum(len(v) for v in assigned_a.values())
+        self.assertLessEqual(total, 32)
+        self.assertGreaterEqual(total, len(agents))
         for agent in agents:
-            self.assertEqual(len(assigned_a[agent]), 8)
+            self.assertGreaterEqual(len(assigned_a[agent]), 1)
+            self.assertLessEqual(len(assigned_a[agent]), 8)
 
     def test_reallocation_for_stuck_agent(self) -> None:
         graph = {
@@ -118,12 +121,34 @@ class TerritoryGraphTests(unittest.TestCase):
             assigned=assigned,
             unassigned=unassigned,
             graph=graph,
+            capitals={"Y": "D"},
         )
         self.assertIsNotNone(swap)
         owner, target, replacement = swap
         self.assertEqual(owner, "Y")
         self.assertEqual(target, "C")
         self.assertEqual(replacement, "D")
+
+    def test_reallocation_respects_capital(self) -> None:
+        graph = {
+            "A": {"B"},
+            "B": {"A", "C"},
+            "C": {"B", "D"},
+            "D": {"C"},
+        }
+        assigned = {
+            "X": {"A", "B"},
+            "Y": {"C"},
+        }
+        unassigned = {"D"}
+        swap = _find_reallocation_for_agent(
+            "X",
+            assigned=assigned,
+            unassigned=unassigned,
+            graph=graph,
+            capitals={"Y": "C"},
+        )
+        self.assertIsNone(swap)
 
     def test_contiguity_matrix_file(self) -> None:
         path = Path(__file__).resolve().parents[1] / "tests" / "territory_contiguity.json"

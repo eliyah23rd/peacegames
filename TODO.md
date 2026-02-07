@@ -41,6 +41,9 @@
 - [x] Improved territory assignment to swap territories when an agent is stuck.
 - [x] Resolved map image not loading in UI.
 - [x] Re-ran `python run_all_tests.py` after contiguity/assignment updates (2026-02-02).
+- [x] Enforced no-random fallback and capital-protected swaps in assignment.
+- [x] Updated tests to allow unassigned territories when agents get stuck.
+- [x] Re-ran `python run_all_tests.py` after assignment rule changes (2026-02-02).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -68,3 +71,5 @@
 - Added server-side map render logs for debugging.
 - User reports map not showing after UI changes; likely cached JS or missing mapLegend element.
 - Added `tests/territory_contiguity.json` for fixed-map adjacency matrix edits.
+- Updated assignment to avoid swapping away capitals and to stop assigning when stuck.
+- Updated tests to reflect that not all territories must be assigned.

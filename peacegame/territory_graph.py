@@ -98,44 +98,17 @@ def assign_territories_round_robin(
         capitals[agent] = terr
 
     # Round-robin growth by adjacency.
-    stalled = 0
     idx = 0
     total_target = sum(targets.values()) if targets is not None else len(territories)
     total_assigned = sum(len(v) for v in assigned.values())
-    while unassigned and total_assigned < total_target:
-        agent = active_agents[idx % len(active_agents)]
+    while unassigned and active_agents and total_assigned < total_target:
+        i = idx % len(active_agents)
+        agent = active_agents[i]
         idx += 1
         if targets is not None and len(assigned[agent]) >= targets.get(agent, 0):
-            stalled += 1
-            if stalled >= len(active_agents):
-                candidates = [
-                    a
-                    for a in active_agents
-                    if targets is None or len(assigned[a]) < targets.get(a, 0)
-                ]
-                if not candidates:
-                    break
-                agent = min(candidates, key=lambda a: (len(assigned[a]), a))
-                swap = _find_reallocation_for_agent(
-                    agent,
-                    assigned=assigned,
-                    unassigned=unassigned,
-                    graph=graph,
-                )
-                if swap is not None:
-                    owner, target, replacement = swap
-                    assigned[agent].add(target)
-                    assigned[owner].remove(target)
-                    assigned[owner].add(replacement)
-                    unassigned.remove(replacement)
-                    total_assigned += 1
-                    stalled = 0
-                    continue
-                best = rng.choice(sorted(unassigned))
-                assigned[agent].add(best)
-                unassigned.remove(best)
-                total_assigned += 1
-                stalled = 0
+            active_agents.pop(i)
+            if i < idx:
+                idx -= 1
             continue
 
         frontier = set()
@@ -144,39 +117,26 @@ def assign_territories_round_robin(
         frontier &= unassigned
 
         if not frontier:
-            stalled += 1
-            if stalled >= len(active_agents):
-                candidates = [
-                    a
-                    for a in active_agents
-                    if targets is None or len(assigned[a]) < targets.get(a, 0)
-                ]
-                if not candidates:
-                    break
-                agent = min(candidates, key=lambda a: (len(assigned[a]), a))
-                swap = _find_reallocation_for_agent(
-                    agent,
-                    assigned=assigned,
-                    unassigned=unassigned,
-                    graph=graph,
-                )
-                if swap is not None:
-                    owner, target, replacement = swap
-                    assigned[agent].add(target)
-                    assigned[owner].remove(target)
-                    assigned[owner].add(replacement)
-                    unassigned.remove(replacement)
-                    total_assigned += 1
-                    stalled = 0
-                    continue
-                best = rng.choice(sorted(unassigned))
-                assigned[agent].add(best)
-                unassigned.remove(best)
+            swap = _find_reallocation_for_agent(
+                agent,
+                assigned=assigned,
+                unassigned=unassigned,
+                graph=graph,
+                capitals=capitals,
+            )
+            if swap is not None:
+                owner, target, replacement = swap
+                assigned[agent].add(target)
+                assigned[owner].remove(target)
+                assigned[owner].add(replacement)
+                unassigned.remove(replacement)
                 total_assigned += 1
-                stalled = 0
+            else:
+                active_agents.pop(i)
+                if i < idx:
+                    idx -= 1
             continue
 
-        stalled = 0
         # Prefer territories that open more future options.
         best = None
         best_score = -1
@@ -217,6 +177,7 @@ def _find_reallocation_for_agent(
     assigned: Dict[str, Set[str]],
     unassigned: Set[str],
     graph: Dict[str, Set[str]],
+    capitals: Dict[str, str] | None = None,
 ) -> tuple[str, str, str] | None:
     if not unassigned:
         return None
@@ -239,6 +200,8 @@ def _find_reallocation_for_agent(
         if (owner, target) in seen:
             continue
         seen.add((owner, target))
+        if capitals and capitals.get(owner) == target:
+            continue
         remaining = set(assigned.get(owner, set()))
         if target not in remaining:
             continue
