@@ -48,6 +48,9 @@
 - [x] Ran `python run_all_tests.py` before adding 1-turn resource demo setup (2026-02-02).
 - [x] Added 1-turn resource demo setup file for map testing.
 - [x] Re-ran `python run_all_tests.py` after adding 1-turn resource demo setup (2026-02-02).
+- [x] Ran `python run_all_tests.py` before changing contiguity file format (2026-02-07).
+- [x] Replaced contiguity matrix with adjacency list JSON and loaded it in fixed-map graph.
+- [x] Re-ran `python run_all_tests.py` after contiguity format change (2026-02-07).
 - [x] Ran `python run_all_tests.py` before updating TODO for fixed-map usage question (2026-02-02).
 - [x] Re-ran `python run_all_tests.py` after TODO update (2026-02-02).
 - [x] Confirmed sim run used fixed-map territories from `worldmap/world_territories_32.json`.
@@ -78,3 +81,4 @@
 - Updated assignment to avoid swapping away capitals and to stop assigning when stuck.
 - Updated tests to reflect that not all territories must be assigned.
 - Updated tests to allow assignments beyond initial target counts.
+- Updated contiguity overrides file to name -> adjacent list format.

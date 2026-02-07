@@ -150,19 +150,21 @@ class TerritoryGraphTests(unittest.TestCase):
         )
         self.assertIsNone(swap)
 
-    def test_contiguity_matrix_file(self) -> None:
-        path = Path(__file__).resolve().parents[1] / "tests" / "territory_contiguity.json"
+    def test_contiguity_file(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        path = root / "tests" / "territory_contiguity.json"
+        world_path = root / "worldmap" / "world_territories_32.json"
         self.assertTrue(path.is_file(), f"Missing contiguity file: {path}")
         data = json.loads(path.read_text(encoding="utf-8"))
-        names = data.get("names", [])
-        matrix = data.get("matrix", [])
-        self.assertEqual(len(matrix), len(names))
-        for row in matrix:
-            self.assertEqual(len(row), len(names))
-        for i in range(len(names)):
-            for j in range(len(names)):
-                self.assertEqual(matrix[i][j], matrix[j][i])
-                self.assertIn(matrix[i][j], (0, 1))
+        self.assertIsInstance(data, dict)
+        world = json.loads(world_path.read_text(encoding="utf-8"))
+        names = {t["name"] for t in world.get("territories", [])}
+        self.assertEqual(set(data.keys()), names)
+        for name, adj_list in data.items():
+            self.assertIsInstance(adj_list, list)
+            for adj in adj_list:
+                self.assertIn(adj, names)
+                self.assertIn(name, data.get(adj, []))
 
 
 if __name__ == "__main__":

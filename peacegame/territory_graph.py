@@ -383,6 +383,29 @@ def load_fixed_map(
             continue
         positions[name] = (int(center[0]), int(center[1]))
         graph.setdefault(name, set())
+    override_path = Path(__file__).resolve().parent.parent / "tests" / "territory_contiguity.json"
+    if override_path.exists():
+        overrides = json.loads(override_path.read_text(encoding="utf-8"))
+        if not isinstance(overrides, dict):
+            raise ValueError("Contiguity overrides must be a JSON object mapping names to lists.")
+        missing = set(positions) - set(overrides)
+        extra = set(overrides) - set(positions)
+        if missing or extra:
+            raise ValueError(
+                f"Contiguity overrides mismatch: missing={sorted(missing)}, extra={sorted(extra)}"
+            )
+        graph = {name: set() for name in positions}
+        for name, adj_list in overrides.items():
+            if not isinstance(adj_list, list):
+                raise ValueError(f"Adjacency list for {name} must be a list.")
+            for adj_name in adj_list:
+                if adj_name not in graph:
+                    raise ValueError(f"Unknown adjacent territory '{adj_name}' in overrides.")
+                if adj_name == name:
+                    continue
+                graph[name].add(adj_name)
+                graph[adj_name].add(name)
+        return sorted(graph.keys()), graph, positions
     for terr in territories:
         name = terr.get("name")
         if not name or name not in graph:
