@@ -44,6 +44,7 @@
 - [x] Enforced no-random fallback and capital-protected swaps in assignment.
 - [x] Updated tests to allow unassigned territories when agents get stuck.
 - [x] Re-ran `python run_all_tests.py` after assignment rule changes (2026-02-02).
+- [x] Re-ran `python run_all_tests.py` after adjusting target cap logic (2026-02-02).
 - [x] Ran `python run_all_tests.py` before adding 1-turn resource demo setup (2026-02-02).
 - [x] Added 1-turn resource demo setup file for map testing.
 - [x] Re-ran `python run_all_tests.py` after adding 1-turn resource demo setup (2026-02-02).
@@ -76,3 +77,4 @@
 - Added `tests/territory_contiguity.json` for fixed-map adjacency matrix edits.
 - Updated assignment to avoid swapping away capitals and to stop assigning when stuck.
 - Updated tests to reflect that not all territories must be assigned.
+- Updated tests to allow assignments beyond initial target counts.

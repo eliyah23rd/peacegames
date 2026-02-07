@@ -102,7 +102,7 @@ class TerritoryGraphTests(unittest.TestCase):
         self.assertGreaterEqual(total, len(agents))
         for agent in agents:
             self.assertGreaterEqual(len(assigned_a[agent]), 1)
-            self.assertLessEqual(len(assigned_a[agent]), 8)
+            self.assertLessEqual(len(assigned_a[agent]), 32)
 
     def test_reallocation_for_stuck_agent(self) -> None:
         graph = {

@@ -99,18 +99,10 @@ def assign_territories_round_robin(
 
     # Round-robin growth by adjacency.
     idx = 0
-    total_target = sum(targets.values()) if targets is not None else len(territories)
-    total_assigned = sum(len(v) for v in assigned.values())
-    while unassigned and active_agents and total_assigned < total_target:
+    while unassigned and active_agents:
         i = idx % len(active_agents)
         agent = active_agents[i]
         idx += 1
-        if targets is not None and len(assigned[agent]) >= targets.get(agent, 0):
-            active_agents.pop(i)
-            if i < idx:
-                idx -= 1
-            continue
-
         frontier = set()
         for terr in sorted(assigned[agent]):
             frontier |= graph.get(terr, set())
@@ -130,7 +122,6 @@ def assign_territories_round_robin(
                 assigned[owner].remove(target)
                 assigned[owner].add(replacement)
                 unassigned.remove(replacement)
-                total_assigned += 1
             else:
                 active_agents.pop(i)
                 if i < idx:
@@ -149,7 +140,6 @@ def assign_territories_round_robin(
             best = rng.choice(sorted(frontier))
         assigned[agent].add(best)
         unassigned.remove(best)
-        total_assigned += 1
 
     if return_capitals:
         return assigned, capitals
