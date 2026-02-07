@@ -2,8 +2,13 @@
 
 ## To Do
 - [ ] Add any additional repo workflows if discovered in future requests.
+- [ ] Commit and push contiguity script + fixes.
 
 ## Done
+- [x] Ran `python run_all_tests.py` before contiguity symmetry script work (2026-02-07; failing: CanadaCentral missing reverse edge).
+- [x] Added `scripts/ensure_contiguity.py` to enforce symmetric adjacency lists.
+- [x] Repaired `tests/territory_contiguity.json` with the symmetry script.
+- [x] Re-ran `python run_all_tests.py` after contiguity fixes (2026-02-07).
 - [x] Ran `python run_all_tests.py` before changes (2026-02-02).
 - [x] Drafted repo skill at `skills/peacegames/SKILL.md`.
 - [x] Added command/workflow runbook in `skills/peacegames/references/commands.md`.
@@ -82,3 +87,4 @@
 - Updated tests to reflect that not all territories must be assigned.
 - Updated tests to allow assignments beyond initial target counts.
 - Updated contiguity overrides file to name -> adjacent list format.
+- Added `scripts/ensure_contiguity.py` to enforce two-way contiguity consistency.

@@ -4,7 +4,8 @@
     "CanadaWest",
     "GreatPlains",
     "Siberia",
-    "USWest"
+    "USWest",
+    "Greenland"
   ],
   "GreatPlains": [
     "CanadaCentral",
@@ -24,7 +25,8 @@
   "CanadaEast": [
     "CanadaCentral",
     "GreatPlains",
-    "USEast"
+    "USEast",
+    "Greenland"
   ],
   "Alaska": [
     "CanadaWest"
@@ -119,13 +121,14 @@
     "RussiaEast"
   ],
   "EuropeWest": [
-    "EuropeEast"
+    "EuropeEast",
+    "Greenland"
   ],
   "Siberia": [
-    "CanadaCentral",
     "RussiaCentral",
     "RussiaEast",
-    "RussiaWest"
+    "RussiaWest",
+    "CanadaCentral"
   ],
   "Kamchatka": [
     "BrazilEast",
@@ -150,7 +153,11 @@
   "Australia": [
     "India"
   ],
-  "Greenland": [],
+  "Greenland": [
+    "CanadaCentral",
+    "CanadaEast",
+    "EuropeWest"
+  ],
   "AntarcticaWest": [
     "AntarcticaEast"
   ]
