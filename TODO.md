@@ -2,8 +2,10 @@
 
 ## To Do
 - [ ] Add any additional repo workflows if discovered in future requests.
+- [ ] Commit and push batch contiguity + seed override updates.
 
 ## Done
+- [x] Held off on tests/commits during the multi-change phase; resumed now.
 - [x] Ran `python run_all_tests.py` before contiguity symmetry script work (2026-02-07; failing: CanadaCentral missing reverse edge).
 - [x] Added `scripts/ensure_contiguity.py` to enforce symmetric adjacency lists.
 - [x] Repaired `tests/territory_contiguity.json` with the symmetry script.
@@ -15,6 +17,26 @@
 - [x] Added Alaska <-> Kamchatka adjacency link in contiguity file.
 - [x] Re-ran `python run_all_tests.py` after contiguity update (2026-02-08).
 - [x] Committed and pushed Alaska/Kamchatka contiguity update (2026-02-08).
+- [x] Ran `scripts/ensure_contiguity.py` (no symmetry issues reported).
+- [x] Connected USWest to RussiaEast and China in contiguity file.
+- [x] Ran `scripts/ensure_contiguity.py` after USWest link updates (no symmetry issues reported).
+- [x] Australia <-> Argentina adjacency already present; no file change needed.
+- [x] Ran `scripts/ensure_contiguity.py` after Australia/Argentina check (no symmetry issues reported).
+- [x] Added CLI seed override to sim runners for random generation testing.
+- [x] Ran `scripts/ensure_contiguity.py` after seed override changes (no symmetry issues reported).
+- [x] Updated BrazilEast adjacency and removed Kamchatka link; ran `scripts/ensure_contiguity.py` (no symmetry issues reported).
+- [x] Updated USWest adjacency to drop RussiaWest; ran `scripts/ensure_contiguity.py` (no symmetry issues reported).
+- [x] Added AmericaCentral <-> GreatPlains adjacency; ran `scripts/ensure_contiguity.py` (no symmetry issues reported).
+- [x] Removed BrazilWest <-> AlgLibya adjacency; ran `scripts/ensure_contiguity.py` (no symmetry issues reported).
+- [x] Added EuropeEast <-> AlgLibya and EuropeEast <-> Egypt; ran `scripts/ensure_contiguity.py` (no symmetry issues reported).
+- [x] Added AlgLibya <-> EuropeWest; ran `scripts/ensure_contiguity.py` (no symmetry issues reported).
+- [x] Added EuropeEast <-> AlgLibya and EuropeEast <-> Egypt.
+- [x] Removed BrazilWest <-> AlgLibya adjacency.
+- [x] Added AmericaCentral <-> GreatPlains adjacency.
+- [x] Updated USWest adjacency to drop RussiaWest and keep RussiaEast/China.
+- [x] Updated BrazilEast adjacency to AmericaCentral/BrazilWest/Argentina/Nigeria and removed Kamchatka.
+- [x] Checked latest 1-turn round data: John owns Kamchatka, so BrazilEast is contiguous via Kamchatka.
+- [x] Ran `python run_all_tests.py` after batch contiguity changes (2026-02-08).
 - [x] Ran `python run_all_tests.py` before changes (2026-02-02).
 - [x] Drafted repo skill at `skills/peacegames/SKILL.md`.
 - [x] Added command/workflow runbook in `skills/peacegames/references/commands.md`.
@@ -94,3 +116,5 @@
 - Updated tests to allow assignments beyond initial target counts.
 - Updated contiguity overrides file to name -> adjacent list format.
 - Added `scripts/ensure_contiguity.py` to enforce two-way contiguity consistency.
+- User requested a batch-change phase with no tests or commits; only run the ensure script when asked.
+- Latest 1-turn data file used: `round_data/resource_demo_4p_1turn_20260208_105925.json` (BrazilEast adjacency via Kamchatka).

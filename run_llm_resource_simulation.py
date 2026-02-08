@@ -20,6 +20,12 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("setup", help="Path to initial_setup JSON")
     parser.add_argument("--model", default=None, help="Override LLM model name")
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override setup seed (use -1 for random/no seed).",
+    )
+    parser.add_argument(
         "modifiers",
         nargs="*",
         help="Prompt modifiers in agent order (comma-separated allowed)",
@@ -39,7 +45,7 @@ def _normalize_seed(raw: Any) -> int | None:
 def main() -> int:
     if len(sys.argv) < 2:
         print(
-            "Usage: python run_llm_resource_simulation.py initial_setup/<file>.json [--model MODEL] [modifier1 modifier2 ...]"
+            "Usage: python run_llm_resource_simulation.py initial_setup/<file>.json [--model MODEL] [--seed SEED] [modifier1 modifier2 ...]"
         )
         return 2
 
@@ -98,7 +104,9 @@ def main() -> int:
         constants=constants,
         prompt_modifiers=mod_map or None,
     )
-    seed_value = setup.get("seed")
+    seed_value = args.seed
+    if seed_value is None:
+        seed_value = setup.get("seed")
     if seed_value is None:
         seed_value = setup.get("territory_seed")
     if seed_value is None:

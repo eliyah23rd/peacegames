@@ -10,7 +10,8 @@
     "CanadaCentral",
     "CanadaEast",
     "USEast",
-    "USWest"
+    "USWest",
+    "AmericaCentral"
   ],
   "CanadaWest": [
     "Alaska",
@@ -37,7 +38,8 @@
     "CanadaCentral",
     "CanadaWest",
     "GreatPlains",
-    "RussiaWest"
+    "RussiaEast",
+    "China"
   ],
   "Argentina": [
     "BrazilEast",
@@ -46,10 +48,11 @@
     "Australia"
   ],
   "AmericaCentral": [
-    "BrazilWest"
+    "BrazilWest",
+    "BrazilEast",
+    "GreatPlains"
   ],
   "BrazilWest": [
-    "AlgLibya",
     "AmericaCentral",
     "Argentina",
     "BrazilEast"
@@ -57,7 +60,8 @@
   "BrazilEast": [
     "Argentina",
     "BrazilWest",
-    "Kamchatka"
+    "AmericaCentral",
+    "Nigeria"
   ],
   "RussiaCentral": [
     "China",
@@ -71,19 +75,21 @@
     "India",
     "RussiaCentral",
     "Siberia",
-    "USWest",
     "Urals"
   ],
   "EuropeEast": [
     "Arabia",
     "EuropeWest",
-    "Urals"
+    "Urals",
+    "AlgLibya",
+    "Egypt"
   ],
   "RussiaEast": [
     "China",
     "Kamchatka",
     "RussiaCentral",
-    "Siberia"
+    "Siberia",
+    "USWest"
   ],
   "SouthAfrica": [
     "Angola",
@@ -91,7 +97,8 @@
     "AntarcticaEast"
   ],
   "AlgLibya": [
-    "BrazilWest",
+    "EuropeEast",
+    "EuropeWest",
     "Congo",
     "Egypt",
     "Nigeria"
@@ -103,7 +110,8 @@
   "Egypt": [
     "AlgLibya",
     "Congo",
-    "Arabia"
+    "Arabia",
+    "EuropeEast"
   ],
   "Congo": [
     "AlgLibya",
@@ -112,7 +120,8 @@
     "Arabia"
   ],
   "Nigeria": [
-    "AlgLibya"
+    "AlgLibya",
+    "BrazilEast"
   ],
   "Urals": [
     "Arabia",
@@ -123,13 +132,15 @@
     "India",
     "RussiaCentral",
     "RussiaEast",
-    "Australia"
+    "Australia",
+    "USWest"
   ],
   "EuropeWest": [
     "EuropeEast",
     "Greenland",
     "USEast",
-    "CanadaEast"
+    "CanadaEast",
+    "AlgLibya"
   ],
   "Siberia": [
     "RussiaCentral",
@@ -137,7 +148,6 @@
     "RussiaWest"
   ],
   "Kamchatka": [
-    "BrazilEast",
     "RussiaEast",
     "Alaska"
   ],
