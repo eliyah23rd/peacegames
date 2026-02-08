@@ -30,7 +30,8 @@
     "EuropeWest"
   ],
   "Alaska": [
-    "CanadaWest"
+    "CanadaWest",
+    "Kamchatka"
   ],
   "USWest": [
     "CanadaCentral",
@@ -137,7 +138,8 @@
   ],
   "Kamchatka": [
     "BrazilEast",
-    "RussiaEast"
+    "RussiaEast",
+    "Alaska"
   ],
   "India": [
     "Arabia",
