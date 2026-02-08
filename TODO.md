@@ -2,7 +2,6 @@
 
 ## To Do
 - [ ] Add any additional repo workflows if discovered in future requests.
-- [ ] Commit and push batch contiguity + seed override updates.
 
 ## Done
 - [x] Held off on tests/commits during the multi-change phase; resumed now.
@@ -37,6 +36,7 @@
 - [x] Updated BrazilEast adjacency to AmericaCentral/BrazilWest/Argentina/Nigeria and removed Kamchatka.
 - [x] Checked latest 1-turn round data: John owns Kamchatka, so BrazilEast is contiguous via Kamchatka.
 - [x] Ran `python run_all_tests.py` after batch contiguity changes (2026-02-08).
+- [x] Committed and pushed batch contiguity + seed override updates (2026-02-08).
 - [x] Ran `python run_all_tests.py` before changes (2026-02-02).
 - [x] Drafted repo skill at `skills/peacegames/SKILL.md`.
 - [x] Added command/workflow runbook in `skills/peacegames/references/commands.md`.
