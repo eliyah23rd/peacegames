@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Ensure a territory adjacency list is symmetric.
+"""Report symmetry issues in a territory adjacency list.
 
-For every edge A -> B listed in the JSON, the script guarantees B -> A.
-If a neighbor key is missing, it is created with the reverse edge.
+For every edge A -> B listed in the JSON, the script verifies B -> A exists.
+It does not modify files; it only reports problems.
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import sys
 
 
 def load_json(path: Path) -> dict[str, list[str]]:
@@ -32,51 +31,33 @@ def validate_list(name: str, adj: object) -> list[str]:
     return adj
 
 
-def ensure_symmetric(data: dict[str, list[str]]) -> tuple[dict[str, list[str]], int, int]:
-    added_edges = 0
-    added_keys = 0
-    missing_keys: dict[str, list[str]] = {}
+def find_symmetry_issues(
+    data: dict[str, list[str]],
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    missing_keys: list[tuple[str, str]] = []
+    missing_reverse: list[tuple[str, str]] = []
 
     for name, adj in data.items():
         adj_list = validate_list(name, adj)
         for neighbor in adj_list:
             if neighbor == name:
                 continue
-            if neighbor in data:
-                target = data[neighbor]
-            else:
-                target = missing_keys.setdefault(neighbor, [])
-                if len(target) == 0 and neighbor not in data:
-                    # Count each missing key once.
-                    added_keys += 1
-            if name not in target:
-                target.append(name)
-                added_edges += 1
+            if neighbor not in data:
+                missing_keys.append((name, neighbor))
+                continue
+            if name not in data[neighbor]:
+                missing_reverse.append((name, neighbor))
 
-    if missing_keys:
-        for key, value in missing_keys.items():
-            if key not in data:
-                data[key] = value
-
-    return data, added_edges, added_keys
-
-
-def write_json(path: Path, data: dict[str, list[str]]) -> None:
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    return missing_keys, missing_reverse
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ensure adjacency lists are symmetric.")
+    parser = argparse.ArgumentParser(description="Report adjacency symmetry issues.")
     parser.add_argument(
         "path",
         nargs="?",
         default="tests/territory_contiguity.json",
         help="Path to adjacency JSON (default: tests/territory_contiguity.json)",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Report fixes without writing changes.",
     )
     args = parser.parse_args()
 
@@ -85,19 +66,20 @@ def main() -> None:
         raise SystemExit(f"File not found: {path}")
 
     data = load_json(path)
-    data, added_edges, added_keys = ensure_symmetric(data)
+    missing_keys, missing_reverse = find_symmetry_issues(data)
 
-    if added_edges == 0 and added_keys == 0:
-        print("No changes needed.")
+    if not missing_keys and not missing_reverse:
+        print("No symmetry issues found.")
         return
 
-    print(f"Added {added_edges} reverse edges; added {added_keys} missing keys.")
-    if args.dry_run:
-        print("Dry run: no file changes written.")
-        return
+    for name, neighbor in missing_keys:
+        print(f"Missing key: '{neighbor}' (referenced by '{name}')")
+    for name, neighbor in missing_reverse:
+        print(f"Missing reverse edge: '{neighbor}' lacks '{name}'")
 
-    write_json(path, data)
-    print(f"Updated {path}")
+    raise SystemExit(
+        f"Found {len(missing_keys)} missing keys and {len(missing_reverse)} missing reverse edges."
+    )
 
 
 if __name__ == "__main__":

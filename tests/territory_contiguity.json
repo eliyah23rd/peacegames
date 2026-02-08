@@ -3,7 +3,6 @@
     "CanadaEast",
     "CanadaWest",
     "GreatPlains",
-    "Siberia",
     "USWest",
     "Greenland"
   ],
@@ -20,13 +19,15 @@
   ],
   "USEast": [
     "CanadaEast",
-    "GreatPlains"
+    "GreatPlains",
+    "EuropeWest"
   ],
   "CanadaEast": [
     "CanadaCentral",
     "GreatPlains",
     "USEast",
-    "Greenland"
+    "Greenland",
+    "EuropeWest"
   ],
   "Alaska": [
     "CanadaWest"
@@ -39,7 +40,9 @@
   ],
   "Argentina": [
     "BrazilEast",
-    "BrazilWest"
+    "BrazilWest",
+    "AntarcticaWest",
+    "Australia"
   ],
   "AmericaCentral": [
     "BrazilWest"
@@ -60,8 +63,7 @@
     "India",
     "RussiaEast",
     "RussiaWest",
-    "Siberia",
-    "SouthAfrica"
+    "Siberia"
   ],
   "RussiaWest": [
     "Arabia",
@@ -84,8 +86,8 @@
   ],
   "SouthAfrica": [
     "Angola",
-    "RussiaCentral",
-    "Urals"
+    "AntarcticaWest",
+    "AntarcticaEast"
   ],
   "AlgLibya": [
     "BrazilWest",
@@ -99,12 +101,14 @@
   ],
   "Egypt": [
     "AlgLibya",
-    "Congo"
+    "Congo",
+    "Arabia"
   ],
   "Congo": [
     "AlgLibya",
     "Angola",
-    "Egypt"
+    "Egypt",
+    "Arabia"
   ],
   "Nigeria": [
     "AlgLibya"
@@ -112,23 +116,24 @@
   "Urals": [
     "Arabia",
     "EuropeEast",
-    "RussiaWest",
-    "SouthAfrica"
+    "RussiaWest"
   ],
   "China": [
     "India",
     "RussiaCentral",
-    "RussiaEast"
+    "RussiaEast",
+    "Australia"
   ],
   "EuropeWest": [
     "EuropeEast",
-    "Greenland"
+    "Greenland",
+    "USEast",
+    "CanadaEast"
   ],
   "Siberia": [
     "RussiaCentral",
     "RussiaEast",
-    "RussiaWest",
-    "CanadaCentral"
+    "RussiaWest"
   ],
   "Kamchatka": [
     "BrazilEast",
@@ -145,13 +150,20 @@
     "EuropeEast",
     "India",
     "RussiaWest",
-    "Urals"
+    "Urals",
+    "Egypt",
+    "Congo"
   ],
   "AntarcticaEast": [
-    "AntarcticaWest"
+    "AntarcticaWest",
+    "Australia",
+    "SouthAfrica"
   ],
   "Australia": [
-    "India"
+    "India",
+    "AntarcticaEast",
+    "China",
+    "Argentina"
   ],
   "Greenland": [
     "CanadaCentral",
@@ -159,6 +171,8 @@
     "EuropeWest"
   ],
   "AntarcticaWest": [
-    "AntarcticaEast"
+    "AntarcticaEast",
+    "SouthAfrica",
+    "Argentina"
   ]
 }
